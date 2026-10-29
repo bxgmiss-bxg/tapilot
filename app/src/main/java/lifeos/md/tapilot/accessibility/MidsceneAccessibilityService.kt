@@ -73,6 +73,8 @@ class MidsceneAccessibilityService : AccessibilityService() {
         // call current() immediately after receiving the connection callback.
         instance = WeakReference(this)
         notifyConnectionChanged(true)
+        // Some OEMs rebind accessibility after updates without delivering the package broadcast.
+        lifeos.md.tapilot.wireless.WirelessControlService.restoreIfEnabled(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) = Unit

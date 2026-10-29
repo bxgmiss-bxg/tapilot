@@ -101,5 +101,10 @@
             android:foregroundServiceType="dataSync" />
         <service android:name=".wireless.WirelessControlService" android:exported="false"
             android:foregroundServiceType="connectedDevice" />
+        <receiver android:name=".wireless.WirelessUpdateReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

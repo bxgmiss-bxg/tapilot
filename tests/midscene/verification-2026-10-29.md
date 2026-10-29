@@ -314,3 +314,33 @@ These are still unresolved. This change does not claim the remaining upstream
 material or Codex embedded GUI acceptance is complete. Videos are unchanged
 pending the user's preference on the two photo avatars around 32 seconds.
 Repository visibility remains private.
+
+
+### Best-effort wireless restoration after APK replacement
+
+Added a non-exported MY_PACKAGE_REPLACED receiver, accessibility rebind recovery,
+and a foreground app-open fallback. Each checks the persisted wireless-enabled
+preference. RESTORE requests recheck that preference in onStartCommand and never
+write it true; explicit user start retains the existing behavior. Background
+start refusal is logged without clearing the saved preference or pairing.
+
+On OPPO PEUM00, the first broadcast-only implementation did not restore the
+service after installation; a wireless capture failed. Added accessibility
+rebind recovery, rebuilt, then performed two real same-version `adb install -r`
+replacements of the final beta without launching Tapilot afterward. Both restored
+the wireless foreground service and accepted the existing computer pairing for
+fresh Wi-Fi screenshots of the home screen. The second final-build run also
+logged receipt of MY_PACKAGE_REPLACED and a RESTORE service start with the system
+PACKAGE_REPLACED temporary allowlist. USB was used for installation and diagnostics,
+not for the screenshot connection. No scan or pairing reset occurred.
+
+Installed base.apk SHA-256 matched the build:
+`955c3758a1e852d032a7814d808a1ee9de6a541e007f29e53a34cc58dc367f9f`.
+Kotlin tests: 396 total, 395 passed, one skipped; lintBeta, assembleBeta and
+local APK verification passed. Logs: `build/open-source-review/update-restore-*`.
+Midscene report: `5ec31f6a-e6b8-40df-b316-2b851bd330b9`.
+
+This proves recovery on this phone in these two installs, not every OEM or
+installer. A deliberately disabled service staying disabled is guarded in code
+but was not separately device-tested. Foreground fallback after an OEM refusal
+was not exercised. Installation still interrupts the old process and connection.

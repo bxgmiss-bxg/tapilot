@@ -158,7 +158,11 @@ class MainActivity : ComponentActivity() {
             chatController.showError(if (chatController.state.chinese) "麦克风权限未开启，允许后可开始语音对答" else "Allow microphone access to start voice chat")
         }
     }
-    override fun onStart() { super.onStart(); handler.post(refresh) }
+    override fun onStart() {
+        super.onStart()
+        lifeos.md.tapilot.wireless.WirelessControlService.restoreIfEnabled(this)
+        handler.post(refresh)
+    }
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus && globalPanel && ::chatController.isInitialized && chatController.voiceState.active &&

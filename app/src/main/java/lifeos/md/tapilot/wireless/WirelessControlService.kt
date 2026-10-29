@@ -162,7 +162,8 @@ class WirelessControlService : Service() {
             return START_NOT_STICKY
         }
         // A null intent is Android restarting an already enabled foreground service.
-        if (intent != null) preferences.edit().putBoolean("enabled", true).apply()
+        // Recovery must not turn a deliberate stop back on, even if queued earlier.
+        if (intent != null && intent.action != RESTORE) preferences.edit().putBoolean("enabled", true).apply()
         if (!preferences.getBoolean("enabled", false)) { stopSelf(); return START_NOT_STICKY }
         WirelessState.enabled = true
         if (!registered) {
@@ -252,6 +253,18 @@ class WirelessControlService : Service() {
             .addAction(Notification.Action.Builder(null, label("停止", "Stop"), stop).build()).build()
     }
     companion object {
+        internal fun restoreIfEnabled(context: Context) {
+            if (current != null || !context.getSharedPreferences("wireless-pairing", Context.MODE_PRIVATE)
+                    .getBoolean("enabled", false)) return
+            try {
+                context.startForegroundService(Intent(context, WirelessControlService::class.java).setAction(RESTORE))
+                android.util.Log.i("TapilotWireless", "Requested saved wireless service restoration")
+            } catch (error: RuntimeException) {
+                // OEM background policy may refuse this. Keep the preference for a foreground retry.
+                android.util.Log.w("TapilotWireless", "Wireless restoration deferred until app opens", error)
+            }
+        }
+
         internal fun stop(context: Context) {
             context.getSharedPreferences("wireless-pairing", Context.MODE_PRIVATE).edit().putBoolean("enabled", false).apply()
             current?.let { service ->
@@ -267,5 +280,6 @@ class WirelessControlService : Service() {
         private const val CHANNEL = "tapilot_wireless"
         private const val NOTIFICATION = 2115
         private const val STOP = "lifeos.md.tapilot.wireless.STOP"
+        private const val RESTORE = "lifeos.md.tapilot.wireless.RESTORE"
     }
 }
