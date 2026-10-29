@@ -47,7 +47,7 @@ internal class WirelessDeviceSession(private val context: Context, private val d
         if (method == "device.execute") handler.post {
             if (!closed.get()) {
                 executing = false
-                MidsceneAccessibilityService.current()?.updateTaskStatus(TaskExecutionStatus.IDLE, null)
+                MidsceneAccessibilityService.current()?.updateTaskStatus(TaskExecutionStatus.IDLE, showEffect = false)
             }
         }
     }
@@ -59,7 +59,7 @@ internal class WirelessDeviceSession(private val context: Context, private val d
             check(!context.getSystemService(KeyguardManager::class.java).isDeviceLocked) { "Phone is locked. Unlock it on the device." }
             if (method == "device.execute") {
                 executing = true
-                MidsceneAccessibilityService.current()?.updateTaskStatus(TaskExecutionStatus.RUNNING, null)
+                MidsceneAccessibilityService.current()?.updateTaskStatus(TaskExecutionStatus.RUNNING, showEffect = false)
             }
             device.execute(id, DeviceProtocol.parse(method, prepared), done)
         }
@@ -91,7 +91,7 @@ internal class WirelessDeviceSession(private val context: Context, private val d
             // Keep cancellation marked so delayed input/navigation callbacks cannot run after disconnect.
             MidsceneAccessibilityService.current()?.cancelSession(id)
             DeviceControlLease.release(id)
-            if (registration != null) MidsceneAccessibilityService.current()?.updateTaskStatus(if (executing) TaskExecutionStatus.STOPPED else TaskExecutionStatus.IDLE, null)
+            if (registration != null) MidsceneAccessibilityService.current()?.updateTaskStatus(if (executing) TaskExecutionStatus.STOPPED else TaskExecutionStatus.IDLE, showEffect = false)
             executing = false
             ActiveTaskStopRegistry.unregister(registration)
             registration = null

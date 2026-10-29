@@ -126,10 +126,11 @@ class MidsceneAccessibilityService : AccessibilityService() {
         }
     }
 
-    fun updateTaskStatus(status: TaskExecutionStatus, detail: String? = null) {
+    fun updateTaskStatus(status: TaskExecutionStatus, detail: String? = null, showEffect: Boolean = true) {
         TaskExecutionTracker.update(status)
         onMain {
-            taskEffects.update(status, detail)
+            // Desktop control already shows progress in its panel; avoid flashing the phone edges.
+            taskEffects.update(if (showEffect) status else TaskExecutionStatus.IDLE, if (showEffect) detail else null)
             floatingBall.setTaskRunning(TaskExecutionTracker.isActive)
         }
     }
