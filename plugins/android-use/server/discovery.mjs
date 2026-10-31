@@ -14,7 +14,8 @@ export async function discoverPhones({ timeoutMs = 2500, fingerprint } = {}) {
     let browser, timer, bonjour, settled = false;
     const finish = () => { if (settled) return; settled = true; clearTimeout(timer); browser?.stop(); bonjour?.destroy(); resolve([...found.values()]); };
     try {
-      bonjour = new Bonjour({}, () => queueMicrotask(finish));
+      // A multicast error on one interface must not discard answers from another.
+      bonjour = new Bonjour({}, () => {});
       browser = bonjour.find({ type: 'tapilot', protocol: 'tcp' }, service => {
         for (const phone of discoveredPhones(service)) if ((!fingerprint || phone.fingerprint === fingerprint) && found.size < 32) found.set(`${phone.fingerprint}:${phone.host}`, phone);
       });

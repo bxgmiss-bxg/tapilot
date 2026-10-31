@@ -107,6 +107,7 @@ const labels = () => ({
 function syncControls() {
   for (const el of controls) el.disabled = busy || !!pointer || state !== 'live' || !displayedFrame;
   resume.disabled = pause.disabled = disconnect.disabled = pair.disabled = busy;
+  document.querySelector('#device-pair').disabled = busy;
   devicesSelect.disabled = busy || loadingDevices;
   for (const id of ['#device-connect', '#device-disconnect', '#device-forget', '#device-forget-confirm'])
     document.querySelector(id).disabled = busy || loadingDevices || !devicesSelect.value;
@@ -263,6 +264,15 @@ pair.onclick = async () => {
     notice.textContent = t("用手机扫描二维码，然后在此页面确认连接。配对成功后画面会自动恢复，二维码 5 分钟内有效。"); notice.hidden = false;
   } catch { notice.textContent = t("无法创建配对窗口，请检查电脑 Wi-Fi 后重试。"); notice.hidden = false; }
   finally { busy = false; syncControls(); schedule(0); }
+};
+document.querySelector('#device-pair').onclick = async () => {
+  if (busy) return;
+  // Explicit pairing releases this controller so the phone can accept a scan.
+  if (devicesSelect.value && state === 'live') {
+    if (!await action('tapilot_devices', {action:'disconnect',device_id:devicesSelect.value})) return;
+    await refreshDevices();
+  }
+  await pair.onclick();
 };
 async function refreshPairing() {
   if (Date.now() >= pairingExpiresAt) { clearPairingQr(); return; }

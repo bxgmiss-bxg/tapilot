@@ -75,7 +75,11 @@ export class PhoneConnection {
       this.close(error);
       if (!pair && rediscover && !this.config.host.startsWith('127.') && /Unable to connect|connection timed out|connection failed/i.test(error.message)) {
         const { discoverPhones } = await import('./discovery.mjs');
-        const candidates = await discoverPhones({fingerprint:this.config.fingerprint,timeoutMs:2000});
+        let candidates = await discoverPhones({fingerprint:this.config.fingerprint,timeoutMs:2000});
+        if (!candidates.some(p => p.host !== this.config.host || p.port !== this.config.port)) {
+          const { findPairedPhone } = await import('./lan-discovery.mjs');
+          candidates = await findPairedPhone({fingerprint:this.config.fingerprint,port:this.config.port});
+        }
         const target = candidates.find(p => p.host !== this.config.host || p.port !== this.config.port);
         if (target) {
           const previous = this.config;

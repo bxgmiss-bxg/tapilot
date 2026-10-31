@@ -477,3 +477,17 @@ local file with `npm install -g /absolute/path/to/tapilot-0.6.1.tgz`.
 The registry package is not published by this command. Plain `npm pack` from
 this directory is blocked because it would omit the dependency overrides.
 Binary redistribution review remains a separate release requirement.
+
+
+### Reconnecting after an address change
+
+Connect the saved phone from **Paired devices**. If its old address fails, Tapilot
+tries mDNS discovery, then checks port 39877 (or the saved port) in a bounded
+local /24 slice on physical IPv4 interfaces. The fallback compares the saved TLS
+certificate fingerprint before any pairing credential is sent. It never replays
+an action. Networks with client isolation or devices outside those local slices
+may still require pairing again.
+
+The device panel always offers **Pair / pair again**. Use it to open a fresh
+computer QR flow; scan from Tapilot and confirm on the computer. An active
+connection in this panel is released when explicitly starting that flow.
