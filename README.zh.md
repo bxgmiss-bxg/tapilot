@@ -18,9 +18,9 @@ Android `AccessibilityService` 提供截图、手势、系统导航和文字输�
 
 ## 演示
 
-[![观看中文演示](https://tapilot.lifeos.md/videos/tapilot-zh.jpg)](https://tapilot.lifeos.md/zh/#demo)
+[![观看中文演示](https://tapilot.lifeos.md/videos/tapilot-zh.jpg)](https://www.bilibili.com/video/BV1ANxb6XEMy/)
 
-[观看中文演示](https://tapilot.lifeos.md/zh/#demo) · 约 78 秒。
+[观看中文演示](https://www.bilibili.com/video/BV1ANxb6XEMy/) · 约 78 秒。
 
 [下载视频](https://tapilot.lifeos.md/videos/tapilot-zh.mp4)
 

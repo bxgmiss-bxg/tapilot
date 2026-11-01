@@ -19,9 +19,9 @@ This is an experimental project; model decisions and device behavior can fail.
 
 ## Demo
 
-[![Watch the English demo](https://tapilot.lifeos.md/videos/tapilot-en.jpg)](https://tapilot.lifeos.md/#demo)
+[![Watch the English demo](https://tapilot.lifeos.md/videos/tapilot-en.jpg)](https://www.youtube.com/watch?v=TwuMuZ59yog)
 
-[Watch the English demo](https://tapilot.lifeos.md/#demo) · Approximately 78 seconds.
+[Watch the English demo](https://www.youtube.com/watch?v=TwuMuZ59yog) · Approximately 78 seconds.
 
 [Download video](https://tapilot.lifeos.md/videos/tapilot-en.mp4)
 
