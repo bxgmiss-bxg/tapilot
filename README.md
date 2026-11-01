@@ -15,6 +15,8 @@ UI-tree locators. Android's `AccessibilityService` supplies screenshots, gesture
 system navigation and text input. Normal use requires **no ADB, Shizuku or root**.
 This is an experimental project; model decisions and device behavior can fail.
 
+[Website & video demo](https://tapilot.lifeos.md)
+
 ## Demo
 
 [English promotional video](promo-video/en/tapilot-promo.mp4) · [中文宣传片](promo-video/zh/tapilot-promo.mp4) · Normal-speed short edits, approximately 78 seconds.

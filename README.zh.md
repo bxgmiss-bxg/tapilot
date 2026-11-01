@@ -14,6 +14,8 @@
 Android `AccessibilityService` 提供截图、手势、系统导航和文字输入能力。
 日常运行**不需要 ADB、Shizuku 或 root**。项目仍处于实验阶段，模型判断和设备操作都可能失败。
 
+[官网与视频演示](https://tapilot.lifeos.md/zh/)
+
 ## 演示
 
 [中文宣传片](promo-video/zh/tapilot-promo.mp4) · [English promotional video](promo-video/en/tapilot-promo.mp4) · 约 78 秒短版，正常语速。
