@@ -38,7 +38,7 @@
     "build:release": "pnpm run runtime:bundle && pnpm run runtime:node && ./gradlew assembleRelease --max-workers=2 --no-parallel --no-daemon && node scripts/verify-apk.mjs release",
     "build:beta:distribution": "pnpm run runtime:bundle && pnpm run runtime:node && ./gradlew assembleBeta --max-workers=2 --no-parallel --no-daemon && node scripts/verify-apk.mjs beta",
     "check:quick": "node scripts/check.mjs --quick",
-    "check:plugin": "npm --prefix plugins/android-use run check",
+    "check:plugin": "npm --prefix plugins/tapilot run check",
     "check:security": "node scripts/check-security.mjs",
     "check:distribution": "node scripts/distribution-readiness.mjs",
     "release:materials": "node scripts/prepare-distribution-materials.mjs",
@@ -47,7 +47,7 @@
     "test:e2e:live": "npm --prefix tests/midscene run test:live",
     "test:e2e:resilience": "npm --prefix tests/midscene run test:resilience",
     "test:e2e:auth-fixture": "npm --prefix tests/midscene run test:auth-fixture",
-    "postinstall": "node plugins/android-use/scripts/patch-midscene-zod.mjs",
+    "postinstall": "node plugins/tapilot/scripts/patch-midscene-zod.mjs",
     "check:cli-package": "node scripts/check-cli-package.mjs"
   },
   "dependencies": {

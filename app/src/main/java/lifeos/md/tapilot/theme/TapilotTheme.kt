@@ -13,10 +13,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-internal val LocalThemePalette = staticCompositionLocalOf { ThemePalettes.get("classic", false) }
+internal val LocalThemePalette = staticCompositionLocalOf { ThemePalettes.get("minimal", false) }
 
 /** Vibelet palettes adapted to native Android components. */
-internal fun tapilotColors(dark: Boolean, paletteId: String = "classic"): ColorScheme {
+internal fun tapilotColors(dark: Boolean, paletteId: String = "minimal"): ColorScheme {
     val palette = ThemePalettes.get(paletteId, dark)
     val base = if (dark) darkColorScheme() else lightColorScheme()
     return base.copy(
@@ -25,6 +25,16 @@ internal fun tapilotColors(dark: Boolean, paletteId: String = "classic"): ColorS
         primaryContainer = Color(palette.soft),
         onPrimaryContainer = Color(palette.text),
         secondary = Color(palette.primaryDark),
+        onSecondary = Color(palette.contrast),
+        secondaryContainer = Color(palette.soft),
+        onSecondaryContainer = Color(palette.text),
+        tertiary = Color(palette.primary),
+        onTertiary = Color(palette.contrast),
+        tertiaryContainer = Color(palette.softAlt),
+        onTertiaryContainer = Color(palette.text),
+        inverseSurface = Color(ThemePalettes.get(paletteId, !dark).surface),
+        inverseOnSurface = Color(ThemePalettes.get(paletteId, !dark).text),
+        inversePrimary = Color(ThemePalettes.get(paletteId, !dark).primary),
         background = Color(palette.background),
         onBackground = Color(palette.text),
         surface = Color(palette.surface),

@@ -154,10 +154,10 @@ export class DeviceFixtures {
     if (this.controller) throw new Error('This fixture already owns a controller');
     const file = process.env.TAPILOT_E2E_PAIRING_FILE;
     if (!file) throw new Error('Set TAPILOT_E2E_PAIRING_FILE to private pairing data for this test phone');
-    const configModule = await import(new URL('../../plugins/android-use/server/config.mjs', import.meta.url).href);
+    const configModule = await import(new URL('../../plugins/tapilot/server/config.mjs', import.meta.url).href);
     const config = configModule.validateConfig(JSON.parse(readFileSync(file, 'utf8')));
     if (!this.adb(['shell', 'ip', '-o', '-4', 'addr', 'show']).includes(` ${config.host}/`)) throw new Error('Pairing file does not target the selected Android device');
-    const transport = await import(new URL('../../plugins/android-use/server/transport.mjs', import.meta.url).href);
+    const transport = await import(new URL('../../plugins/tapilot/server/transport.mjs', import.meta.url).href);
     const controller: Connection = new transport.PhoneConnection(config);
     this.controller = controller;
     try { await controller.open(false, false); } catch (error) { this.disconnectController(); throw error; }

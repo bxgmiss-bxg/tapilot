@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { WirelessDevice } from '../plugins/android-use/server/midscene/device.mjs';
+import { WirelessDevice } from '../plugins/tapilot/server/midscene/device.mjs';
 
 const fixture = JSON.parse(await readFile(new URL('../tests/fixtures/device.json', import.meta.url), 'utf8'));
 test('wireless adapter emits actions consumed by the Kotlin protocol parser', async () => {

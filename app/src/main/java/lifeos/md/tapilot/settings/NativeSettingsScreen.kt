@@ -287,7 +287,7 @@ private fun ThemePalettePicker(selected: String, zh: Boolean, changed: (String) 
                 }
             }
         }
-        Text(if (selected == "minimal") { if (zh) "纯白底色，淡蓝点缀。" else "White surfaces with soft blue accents." }
+        Text(if (selected == "minimal") { if (zh) "纯白底色，柔绿点缀。" else "White surfaces with soft green accents." }
             else { if (zh) "柔和纸色，淡紫点缀。" else "Warm paper tones with lavender accents." },
             fontSize = 12.sp, lineHeight = 18.sp, color = colors.onSurfaceVariant)
     }

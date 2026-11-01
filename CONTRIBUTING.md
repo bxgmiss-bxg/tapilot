@@ -12,10 +12,10 @@ Set `JAVA_HOME` and `ANDROID_HOME` to your local installations.
 
 ```sh
 pnpm install --frozen-lockfile
-npm ci --prefix plugins/android-use
-node plugins/android-use/scripts/patch-midscene-zod.mjs plugins/android-use
+npm ci --prefix plugins/tapilot
+node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
 npm ci --prefix tests/midscene
-node plugins/android-use/scripts/patch-midscene-zod.mjs tests/midscene
+node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
 pnpm check:quick
 pnpm build:android
 ```
@@ -69,10 +69,10 @@ run these commands in order (stop if any command fails):
 
 ```sh
 pnpm install --frozen-lockfile
-npm ci --prefix plugins/android-use
-node plugins/android-use/scripts/patch-midscene-zod.mjs plugins/android-use
+npm ci --prefix plugins/tapilot
+node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
 npm ci --prefix tests/midscene
-node plugins/android-use/scripts/patch-midscene-zod.mjs tests/midscene
+node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
 pnpm check:security
 pnpm check
 mkdir -p build/performance

@@ -6,7 +6,7 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const checks = [
   ['pnpm', ['audit']],
   ['pnpm', ['--dir', 'node-runtime/bundle', 'audit']],
-  ['npm', ['audit', '--prefix', 'plugins/android-use']],
+  ['npm', ['audit', '--prefix', 'plugins/tapilot']],
   ['npm', ['audit', '--prefix', 'tests/midscene']],
 ];
 for (const [command, args] of checks) {

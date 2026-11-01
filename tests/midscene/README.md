@@ -145,7 +145,7 @@ Force-stop retains app data. Lock/wake requires a device without a secure screen
 lock: the fixture never enters a PIN or bypasses authentication. Port-conflict
 coverage requires `TAPILOT_E2E_WIFI_ADDRESS`; the test owns and removes only its
 own listener. Wireless transport coverage requires `TAPILOT_E2E_PAIRING_FILE`,
-a private existing Android Use pairing JSON targeting the selected phone.
+a private existing Tapilot pairing JSON targeting the selected phone.
 Disconnect other controllers before the run.
 
 The rejected-auth profile requires `TAPILOT_E2E_PACKAGE` to identify a separately

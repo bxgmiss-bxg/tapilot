@@ -1,7 +1,7 @@
+import { stateRoot } from "../plugins/tapilot/server/state-paths.mjs";
 import { createRequire } from 'node:module';
 import { dirname, join, resolve, basename } from 'node:path';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 
 const backend = process.argv.includes('--wasm') ? 'wasm' : 'native';
 const live = process.argv.includes('--model');
@@ -57,9 +57,9 @@ await writeFile(join(output, 'encoding.json'), JSON.stringify(rows, null, 2));
 console.log(JSON.stringify(rows.map(({ file, ...row }) => row), null, 2));
 
 if (live) {
-  const { ChatGPTAuth } = await import('../plugins/android-use/server/midscene/chatgpt-auth.mjs');
-  const { createChatGPTClient } = await import('../plugins/android-use/server/midscene/chatgpt-client.mjs');
-  const auth = new ChatGPTAuth(join(homedir(), '.local/share/android-use/chatgpt'));
+  const { ChatGPTAuth } = await import('../plugins/tapilot/server/midscene/chatgpt-auth.mjs');
+  const { createChatGPTClient } = await import('../plugins/tapilot/server/midscene/chatgpt-client.mjs');
+  const auth = new ChatGPTAuth(join(stateRoot(), 'chatgpt'));
   const model = process.env.TAPILOT_IMAGE_BENCHMARK_MODEL || 'gpt-6-luna';
   const models = await auth.models();
   if (!models.some(item => item.slug === model)) throw new Error('Selected benchmark model is unavailable to the authorized account');

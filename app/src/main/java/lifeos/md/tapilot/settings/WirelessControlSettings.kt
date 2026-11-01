@@ -34,7 +34,7 @@ internal fun WirelessControlSettings(context: Context, zh: Boolean) {
     val pairingMessage = when (stage) {
         PairingStage.SENDING -> label("正在向电脑发送配对信息…", "Sending pairing information to your computer…")
         PairingStage.WAITING -> label("扫码成功。请在 ChatGPT / Codex 的二维码页面点击“确认连接”，完成后这里会显示配对成功。", "QR received. Select Confirm connection on the QR page in ChatGPT / Codex; pairing success will appear here.")
-        PairingStage.PAIRED -> label("配对成功。现在可以回到 ChatGPT 使用 Android Use；电脑开始控制时会显示已连接。", "Paired successfully. Return to Android Use in ChatGPT. Connected appears when the computer starts controlling.")
+        PairingStage.PAIRED -> label("配对成功。现在可以回到 ChatGPT 使用 Tapilot；电脑开始控制时会显示已连接。", "Paired successfully. Return to Tapilot in ChatGPT. Connected appears when the computer starts controlling.")
         PairingStage.FAILED -> label("配对失败：", "Pairing failed: ") + WirelessState.pairingError
         PairingStage.IDLE -> ""
     }
@@ -99,7 +99,7 @@ internal fun WirelessControlSettings(context: Context, zh: Boolean) {
         }) { Text(if (WirelessState.enabled) label("停止无线控制", "Stop wireless control") else label("开启无线控制", "Enable wireless control")) }
         TextButton(enabled = WirelessState.address.isNotEmpty() && !WirelessState.connected && !pairingBusy, onClick = {
                 scanner.launch(ScanOptions().setDesiredBarcodeFormats(ScanOptions.QR_CODE)
-                    .setPrompt(label("扫描电脑 Android Use 配对二维码", "Scan the Android Use pairing QR on your computer"))
+                    .setPrompt(label("扫描电脑 Tapilot 配对二维码", "Scan the Tapilot pairing QR on your computer"))
                     .setCaptureActivity(PairingCaptureActivity::class.java)
                     .setBeepEnabled(false).setOrientationLocked(true))
         }) { Text(label("扫描电脑二维码配对", "Scan computer QR to pair")) }
@@ -107,8 +107,8 @@ internal fun WirelessControlSettings(context: Context, zh: Boolean) {
             modifier = detailInset, fontSize = 12.sp)
         if (WirelessState.address.isEmpty()) Text(if (WirelessState.enabled)
             label("等待 Wi-Fi 就绪后自动连接，已有电脑配对无需重新扫码。", "Connection resumes when Wi-Fi is ready. Paired computers do not need to scan again.")
-            else label("请先开启无线控制，再扫描电脑上的 Android Use 配对二维码。",
-                "Enable wireless control first, then scan the Android Use pairing QR on your computer."), fontSize = 12.sp)
+            else label("请先开启无线控制，再扫描电脑上的 Tapilot 配对二维码。",
+                "Enable wireless control first, then scan the Tapilot pairing QR on your computer."), fontSize = 12.sp)
         if (WirelessState.enabled && WirelessState.paired) TextButton(onClick = { WirelessControlService.current?.revoke(); status = label("已撤销配对", "Pairing revoked") }) {
             Text(label("撤销电脑配对", "Revoke computer pairing"))
         }

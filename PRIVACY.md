@@ -62,8 +62,8 @@ These controls cannot undo actions already performed or retract transmitted data
 - Shared/exported HTML, videos and screenshots live outside app-private storage.
   Delete them from Downloads, gallery, recipients and backups yourself.
 - The computer plugin stores pairing data in `~/.config/tapilot/wireless.json`
-  and state/authentication/reports under `~/.local/share/android-use` by default.
-  `TAPILOT_CONFIG` and `ANDROID_USE_STATE_DIR` can change those paths. Disconnect
+  and state/authentication/reports under `~/.local/share/tapilot` (legacy installations: `~/.local/share/android-use`) by default.
+  `TAPILOT_CONFIG` and `TAPILOT_STATE_DIR` (legacy alias: `ANDROID_USE_STATE_DIR`) can change those paths. Disconnect
   the plugin before deleting its local files. Sign out of its AI account and
   revoke phone pairing separately. Uninstalling the phone app does not clean the
   computer, exports or backups.

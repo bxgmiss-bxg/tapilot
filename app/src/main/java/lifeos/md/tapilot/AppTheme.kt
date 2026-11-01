@@ -30,7 +30,7 @@ object AppTheme {
     fun paletteId(context: Context): String = parsePaletteId(
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE).getString("theme.palette", null))
 
-    fun parsePaletteId(value: String?): String = if (value == "minimal") "minimal" else "classic"
+    fun parsePaletteId(value: String?): String = if (value == "classic") "classic" else "minimal"
 
     fun setPalette(context: Context, id: String) {
         require(id == "classic" || id == "minimal") { "Unsupported palette: $id" }

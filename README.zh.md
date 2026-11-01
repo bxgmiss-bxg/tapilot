@@ -49,7 +49,7 @@ Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负
 - **回看实际执行过程。** 在 Midscene HTML 报告中查看截图、模型计划、动作和错误，
   按需导出。
 - **用语音交互。** 可选火山引擎或 Deepgram 转写与播报，分别配置服务凭据，支持自动朗读回答。
-- **通过 Wi-Fi 控制手机。** 本地 [Android Use 插件](plugins/android-use/README.md)
+- **通过 Wi-Fi 控制手机。** 本地 [Tapilot 插件](plugins/tapilot/README.md)
   通过固定证书的 TLS 连接已配对手机。无线控制要求手机解锁并独占控制权，不需要 ADB 或 USB。
 
 ## 开始使用
@@ -87,10 +87,10 @@ Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负
 
 ```sh
 pnpm install --frozen-lockfile
-npm ci --prefix plugins/android-use
-node plugins/android-use/scripts/patch-midscene-zod.mjs plugins/android-use
+npm ci --prefix plugins/tapilot
+node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
 npm ci --prefix tests/midscene
-node plugins/android-use/scripts/patch-midscene-zod.mjs tests/midscene
+node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
 pnpm build:android
 pnpm check:quick
 ```
@@ -104,7 +104,7 @@ Tapilot 日常自动化不需要 ADB。
 | `app/` | Android 原生界面、凭据、设备动作和生命周期 |
 | `node-runtime/` | 内置 Pi Agent、Midscene Runner 和部署依赖 |
 | `packages/android-accessibility/` | Android AccessibilityService 的 Midscene 适配器 |
-| `plugins/android-use/` | 电脑端 Wi-Fi 控制插件 |
+| `plugins/tapilot/` | 电脑端 Wi-Fi 控制插件 |
 | `tests/midscene/` | 23 条 E2E 用例和显式开启的设备故障测试 |
 
 `pnpm check` 执行完整本地测试和构建检查，`pnpm check:security` 审计依赖。

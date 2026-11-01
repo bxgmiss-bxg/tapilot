@@ -31,7 +31,7 @@ In scope:
 - The native bridge and JSON-RPC protocol between Android and the embedded
   Node runtime
 - The native UI, report WebView and report storage
-- The Wi-Fi control service, pairing/discovery and computer-side Android Use plugin
+- The Wi-Fi control service, pairing/discovery and computer-side Tapilot plugin
 
 Out of scope:
 
@@ -63,7 +63,7 @@ Out of scope:
   bearer credential in `~/.config/tapilot/wireless.json` (override: `TAPILOT_CONFIG`),
   with mode 0600. Protect computer backups and the user account accordingly.
 - The computer plugin stores mode, optional ChatGPT authentication and reports under
-  `~/.local/share/android-use` (override: `ANDROID_USE_STATE_DIR`). Signing out and
+  `~/.local/share/tapilot` (legacy installations: `~/.local/share/android-use`) (override: `TAPILOT_STATE_DIR` (legacy alias: `ANDROID_USE_STATE_DIR`)). Signing out and
   revoking phone pairing are separate operations. Reports may contain prompts,
   model output and screenshots; review them before sharing.
 - Phone reports normally stay in app-private storage. Explicit export/share operations

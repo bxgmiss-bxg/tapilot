@@ -6,9 +6,9 @@ import { createInterface } from 'node:readline';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ChatGPTAuth } from '../plugins/android-use/server/midscene/chatgpt-auth.mjs';
-import { PhoneConnection } from '../plugins/android-use/server/transport.mjs';
-import { loadConfig, validateConfig } from '../plugins/android-use/server/config.mjs';
+import { ChatGPTAuth } from '../plugins/tapilot/server/midscene/chatgpt-auth.mjs';
+import { PhoneConnection } from '../plugins/tapilot/server/transport.mjs';
+import { loadConfig, validateConfig } from '../plugins/tapilot/server/config.mjs';
 import { verifyRuntime, sourceFingerprint } from './runtime-integrity.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));

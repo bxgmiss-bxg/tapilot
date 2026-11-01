@@ -12,7 +12,7 @@ const source = path.join(work, 'source');
 const consumer = path.join(work, 'consumer');
 const npm = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 const run = (command, args, cwd) => execFileSync(command, args, { cwd, stdio: 'inherit' });
-fs.cpSync(path.join(root, 'plugins/android-use'), source, {
+fs.cpSync(path.join(root, 'plugins/tapilot'), source, {
   recursive: true, filter: file => !file.split(path.sep).includes('node_modules'),
 });
 run(npm, ['ci', '--ignore-scripts'], source);
@@ -33,7 +33,7 @@ run(npm, ['install', '--ignore-scripts', artifact], consumer);
 run(npm, ['audit', '--audit-level=low'], consumer);
 const installed = path.join(consumer, 'node_modules/tapilot');
 run(process.execPath, ['server/cli.mjs', '--help'], installed);
-fs.cpSync(path.join(root, 'plugins/android-use/test'), path.join(installed, 'test'), { recursive: true });
+fs.cpSync(path.join(root, 'plugins/tapilot/test'), path.join(installed, 'test'), { recursive: true });
 run(process.execPath, ['--test', ...fs.readdirSync(path.join(installed, 'test')).filter(f => f.endsWith('.test.mjs')).map(f => `test/${f}`)], installed);
 // Force the portable path rather than accidentally testing the Mac's native addon.
 const img = path.join(installed, 'node_modules/@img');

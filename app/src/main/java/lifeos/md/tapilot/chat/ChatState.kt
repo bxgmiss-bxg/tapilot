@@ -45,7 +45,7 @@ data class ChatState(
     val ready: Boolean = false,
     val language: String = "zh",
     val dark: Boolean = false,
-    val paletteId: String = "classic",
+    val paletteId: String = "minimal",
     val webSurfaceOpen: Boolean = false,
     val advancedMode: Boolean = false,
     val executionMode: ExecutionMode = ExecutionMode.YOLO,

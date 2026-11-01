@@ -1,3 +1,4 @@
+import { stateRoot } from "../plugins/tapilot/server/state-paths.mjs";
 #!/usr/bin/env node
 // Run the phone's exact Midscene bundle on the desktop, using its paired device.
 // Auth preflight happens before acquiring the phone. Never replay failed actions.
@@ -5,20 +6,19 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { readFile, mkdir, writeFile, copyFile, appendFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
-import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { ChatGPTAuth } from '../plugins/android-use/server/midscene/chatgpt-auth.mjs';
-import { PhoneConnection } from '../plugins/android-use/server/transport.mjs';
+import { ChatGPTAuth } from '../plugins/tapilot/server/midscene/chatgpt-auth.mjs';
+import { PhoneConnection } from '../plugins/tapilot/server/transport.mjs';
 import { controlledEvidence } from './lib/controlled-evidence.mjs';
 import { collectPhoneVerifications } from '../node-runtime/src/run-result.mjs';
 import { verifyRuntime, sourceFingerprint } from './runtime-integrity.mjs';
-import { loadConfig, validateConfig } from '../plugins/android-use/server/config.mjs';
+import { loadConfig, validateConfig } from '../plugins/tapilot/server/config.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const mode = process.argv[2] ?? 'preflight';
 if (!['preflight', 'run'].includes(mode)) throw Error('Use preflight or run');
-const auth = new ChatGPTAuth(process.env.TAPILOT_BENCH_AUTH_DIR ?? join(homedir(), '.local/share/android-use/chatgpt'));
+const auth = new ChatGPTAuth(process.env.TAPILOT_BENCH_AUTH_DIR ?? join(stateRoot(), 'chatgpt'));
 const captureFormat = process.env.TAPILOT_BENCH_CAPTURE_FORMAT ?? 'jpeg';
 if (!['png', 'jpeg'].includes(captureFormat)) throw Error('Unsupported capture format');
 try { await auth.accessToken(); } catch (error) {

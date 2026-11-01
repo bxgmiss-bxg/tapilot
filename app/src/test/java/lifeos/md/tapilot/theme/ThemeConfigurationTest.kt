@@ -6,8 +6,9 @@ import org.junit.Test
 
 class ThemeConfigurationTest {
     @Test fun oldOrUnknownPreferencesKeepVibeletDefaults() {
-        listOf(null, "", "removed", "dark").forEach { assertEquals("classic", AppTheme.parsePaletteId(it)) }
+        listOf(null, "", "removed", "dark").forEach { assertEquals("minimal", AppTheme.parsePaletteId(it)) }
         assertEquals("minimal", AppTheme.parsePaletteId("minimal"))
+        assertEquals("classic", AppTheme.parsePaletteId("classic"))
         listOf(null, "", "removed", "classic").forEach { assertEquals("system", AppTheme.parsePreference(it)) }
     }
 
@@ -30,11 +31,11 @@ class ThemeConfigurationTest {
 
     @Test fun minimalBubblesKeepTheirOwnTextColorInsteadOfButtonContrast() {
         val light = ThemePalettes.get("minimal", false)
-        assertEquals(0xFFEDF2FF.toInt(), light.bubbleStart)
-        assertEquals(0xFF2454E6.toInt(), light.bubbleText)
+        assertEquals(0xFFEAF2ED.toInt(), light.bubbleStart)
+        assertEquals(0xFF2F7A4B.toInt(), light.bubbleText)
         val dark = ThemePalettes.get("minimal", true)
-        assertEquals(0xFF202D4B.toInt(), dark.bubbleStart)
-        assertEquals(0xFFAFC5FF.toInt(), dark.bubbleText)
+        assertEquals(0xFF1F2821.toInt(), dark.bubbleStart)
+        assertEquals(0xFF5BB575.toInt(), dark.bubbleText)
         assertEquals(0xFF181818.toInt(), dark.contrast)
         assertNotEquals(dark.bubbleText, dark.contrast)
     }

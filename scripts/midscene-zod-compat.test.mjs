@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { patchMidsceneZod } from '../plugins/android-use/scripts/patch-midscene-zod.mjs';
+import { patchMidsceneZod } from '../plugins/tapilot/scripts/patch-midscene-zod.mjs';
 
 test('Zod compatibility patches only pinned Midscene imports and is idempotent', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tapilot-zod-'));

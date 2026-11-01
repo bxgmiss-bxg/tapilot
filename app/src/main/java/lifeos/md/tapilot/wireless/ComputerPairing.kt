@@ -16,7 +16,7 @@ import javax.net.ssl.X509TrustManager
 /** The physically scanned QR pins the temporary computer receiver's TLS certificate. */
 internal object ComputerPairing {
     fun send(qr: String, phoneLink: String) {
-        require(qr.startsWith("tapilot://computer/") && qr.length <= 4096) { appText("请扫描 Android Use 电脑配对窗口的二维码", "Scan the QR code in the Android Use computer pairing window") }
+        require(qr.startsWith("tapilot://computer/") && qr.length <= 4096) { appText("请扫描 Tapilot 电脑配对窗口的二维码", "Scan the QR code in the Tapilot computer pairing window") }
         val data = JSONObject(String(Base64.getUrlDecoder().decode(qr.removePrefix("tapilot://computer/"))))
         require(data.getInt("version") == 1 && data.getLong("expiresAt") > System.currentTimeMillis()) { appText("配对二维码已过期，请在电脑重新打开配对窗口", "Pairing QR expired. Open a new pairing window on the computer") }
         val uri = URI(data.getString("url"))

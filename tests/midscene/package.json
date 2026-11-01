@@ -10,7 +10,7 @@
     "check:model": "node scripts/run.mjs model verify",
     "test:resilience": "node scripts/run.mjs --resilience",
     "test:auth-fixture": "node scripts/run.mjs --auth-fixture",
-    "postinstall": "node ../../plugins/android-use/scripts/patch-midscene-zod.mjs"
+    "postinstall": "node ../../plugins/tapilot/scripts/patch-midscene-zod.mjs"
   },
   "engines": {
     "node": ">=22.19.0"

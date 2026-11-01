@@ -37,7 +37,7 @@ without storage or auto-brightness). The evaluated final image shows
 must not be reconstructed from expected answers. Hash checking prevents an
 unnoticed image change; it does not establish the image's meaning.
 
-Verify that the existing Android Use authorization is the same account as the
+Verify that the existing Tapilot authorization is the same account as the
 phone. Pass the first 16 hexadecimal characters of SHA-256 of the trimmed,
 lowercase account email as the fingerprint. Do not put tokens in arguments or
 change the phone's account to make a comparison run.
@@ -47,7 +47,7 @@ node --test scripts/verification-prototype.test.mjs
 node scripts/replay-verification.mjs \
   --screenshots artifacts/verification-replay/screenshots.json \
   --output artifacts/verification-replay/run-NEW-ID \
-  --auth-dir /path/to/existing/android-use/chatgpt \
+  --auth-dir /path/to/existing/tapilot/chatgpt \
   --account-fingerprint VERIFIED_FINGERPRINT \
   --repeats 3
 ```

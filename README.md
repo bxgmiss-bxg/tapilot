@@ -56,7 +56,7 @@ therefore remain unsupported even when their pixels are visible.
   model plans, actions and errors; export it when needed.
 - **Talk to the phone.** Optional Volcengine / Deepgram transcription and speech
   playback, with separate provider credentials and an automatic-read setting.
-- **Control it over Wi-Fi.** The local [Android Use plugin](plugins/android-use/README.md)
+- **Control it over Wi-Fi.** The local [Tapilot plugin](plugins/tapilot/README.md)
   connects a paired computer to the phone over pinned TLS. Wireless use requires
   an unlocked phone and exclusive control, without ADB or USB.
 
@@ -101,10 +101,10 @@ complete host prerequisites and signing setup.
 
 ```sh
 pnpm install --frozen-lockfile
-npm ci --prefix plugins/android-use
-node plugins/android-use/scripts/patch-midscene-zod.mjs plugins/android-use
+npm ci --prefix plugins/tapilot
+node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
 npm ci --prefix tests/midscene
-node plugins/android-use/scripts/patch-midscene-zod.mjs tests/midscene
+node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
 pnpm build:android
 pnpm check:quick
 ```
@@ -119,7 +119,7 @@ install and test; it is not required for Tapilot's runtime automation.
 | `app/` | Native Android UI, credentials, device actions and lifecycle |
 | `node-runtime/` | Embedded Pi agent, Midscene runner and deployment dependencies |
 | `packages/android-accessibility/` | Midscene adapter for Android AccessibilityService |
-| `plugins/android-use/` | Computer-side Wi-Fi control plugin |
+| `plugins/tapilot/` | Computer-side Wi-Fi control plugin |
 | `tests/midscene/` | 23 E2E cases and opt-in device fault fixtures |
 
 Run `pnpm check` for the full local test/build gate and `pnpm check:security` for

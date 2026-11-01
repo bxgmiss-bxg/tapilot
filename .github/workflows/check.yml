@@ -28,12 +28,12 @@ jobs:
       - uses: android-actions/setup-android@v3
       - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
       - run: pnpm install --frozen-lockfile
-      - run: npm ci --prefix plugins/android-use
+      - run: npm ci --prefix plugins/tapilot
       - run: npm ci --prefix tests/midscene
       - name: Apply reviewed Midscene compatibility even when npm disables scripts
         run: |
-          node plugins/android-use/scripts/patch-midscene-zod.mjs plugins/android-use
-          node plugins/android-use/scripts/patch-midscene-zod.mjs tests/midscene
+          node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
+          node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
       - run: pnpm check:security
       - name: Verify standalone CLI installation and portable image runtime
         run: pnpm check:cli-package

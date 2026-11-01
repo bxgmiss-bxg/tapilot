@@ -48,7 +48,7 @@ Tapilot 无法删除服务商已经接收的记录。截图可能包含其他应
 - 分享或导出的 HTML、视频、截图位于应用私有存储之外，需要自行从下载目录、相册、
   接收方和备份中删除。
 - 电脑插件默认把配对信息保存在 `~/.config/tapilot/wireless.json`，状态、认证和报告
-  保存在 `~/.local/share/android-use`。`TAPILOT_CONFIG`、`ANDROID_USE_STATE_DIR`
+  保存在 `~/.local/share/tapilot` （已有安装继续使用 `~/.local/share/android-use`）。`TAPILOT_CONFIG`、`TAPILOT_STATE_DIR` （兼容旧变量 `ANDROID_USE_STATE_DIR`）
   可改变位置。删除电脑文件前先断开插件；退出插件 AI 账号和撤销手机配对也应分别处理。
   卸载手机应用不会清理电脑、导出文件或备份。
 

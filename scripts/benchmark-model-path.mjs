@@ -7,7 +7,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { ChatGPTAuth } from '../plugins/android-use/server/midscene/chatgpt-auth.mjs';
+import { ChatGPTAuth } from '../plugins/tapilot/server/midscene/chatgpt-auth.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const [serial, report] = process.argv.slice(2);
 const probe = report === '--transport-probe';

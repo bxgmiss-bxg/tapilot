@@ -16,7 +16,7 @@ the normal contributor interface; individual scripts below support focused work.
 `check.mjs` runs every `scripts/*.test.mjs` after staging the runtime. If tests move
 into subdirectories, update discovery at the same time. Runtime tests live in
 `node-runtime/tests/`, Android tests in `app/src/test/`, plugin tests in
-`plugins/android-use/test/`, and visual device E2E in `tests/midscene/`.
+`plugins/tapilot/test/`, and visual device E2E in `tests/midscene/`.
 
 Real model/device scripts are opt-in and may use paid model calls or change phone
 state. Keep their model/network/device inputs and failure evidence with the report.

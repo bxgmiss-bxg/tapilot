@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseArgs } from 'node:util';
-import { ChatGPTAuth } from '../plugins/android-use/server/midscene/chatgpt-auth.mjs';
+import { ChatGPTAuth } from '../plugins/tapilot/server/midscene/chatgpt-auth.mjs';
 import { measuredFetch, siwcFetch } from '../node-runtime/src/siwc-fetch.mjs';
 import { verifyPhone } from '../node-runtime/src/phone-verification.mjs';
 import { verifyResolved } from './lib/verification-prototype.mjs';
