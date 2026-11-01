@@ -19,19 +19,15 @@ This is an experimental project; model decisions and device behavior can fail.
 
 ## Demo
 
-[English promotional video](promo-video/en/tapilot-promo.mp4) · [中文宣传片](promo-video/zh/tapilot-promo.mp4) · Normal-speed short edits, approximately 78 seconds.
+[![Watch the English demo](https://tapilot.lifeos.md/videos/tapilot-en.jpg)](https://tapilot.lifeos.md/#demo)
+
+[Watch the English demo](https://tapilot.lifeos.md/#demo) · Approximately 78 seconds.
+
+[Download video](https://tapilot.lifeos.md/videos/tapilot-en.mp4)
 
 ## How the visual loop works
 
-```mermaid
-flowchart LR
-    A[Your instruction] --> B[Phone screenshot]
-    B --> C[Midscene vision planning and locating]
-    C --> D[Android action]
-    D --> E[New screenshot and verification]
-    E --> C
-    E --> F[Result and execution report]
-```
+![Visual action and verification loop](artwork/visual-loop.en.svg)
 
 Midscene supplies the visual planning, locating, action execution and reports.
 Tapilot supplies the native Android UI, device adapter, model transport, saved

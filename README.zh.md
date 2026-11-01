@@ -18,19 +18,15 @@ Android `AccessibilityService` 提供截图、手势、系统导航和文字输�
 
 ## 演示
 
-[中文宣传片](promo-video/zh/tapilot-promo.mp4) · [English promotional video](promo-video/en/tapilot-promo.mp4) · 约 78 秒短版，正常语速。
+[![观看中文演示](https://tapilot.lifeos.md/videos/tapilot-zh.jpg)](https://tapilot.lifeos.md/zh/#demo)
+
+[观看中文演示](https://tapilot.lifeos.md/zh/#demo) · 约 78 秒。
+
+[下载视频](https://tapilot.lifeos.md/videos/tapilot-zh.mp4)
 
 ## 纯视觉操作怎样完成
 
-```mermaid
-flowchart LR
-    A[你的指令] --> B[手机截图]
-    B --> C[Midscene 视觉规划与定位]
-    C --> D[Android 执行动作]
-    D --> E[新截图与结果核验]
-    E --> C
-    E --> F[回复与执行报告]
-```
+![纯视觉操作与核验循环](artwork/visual-loop.zh.svg)
 
 Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负责 Android 原生界面、
 设备适配、模型请求、会话保存和任务生命周期。内置 Node.js 在手机上运行，
