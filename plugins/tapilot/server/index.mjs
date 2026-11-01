@@ -12,7 +12,7 @@ import { panelTools, panelRequest } from "./panel-tools.mjs";
 import { runtimeRequest } from "./runtime-client.mjs";
 
 const server = new Server(
-  { name: "tapilot", version: "0.6.8" },
+  { name: "tapilot", version: "0.6.9" },
   {
     capabilities: { tools: {}, resources: {} },
     instructions:

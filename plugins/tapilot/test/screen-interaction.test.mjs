@@ -13,7 +13,7 @@ async function fixture(locale, {autoLoad = true} = {}) {
   const element = key => {
     if (!elements.has(key)) {
       const value = {hidden:false,value:'',checked:true,dataset:{},handlers:{},children:[],attributes:{},
-        replaceChildren(){this.children=[];},append(child){this.children.push(child);},focus(){doc.activeElement=this;},contains(target){return this===target || this.children.includes(target);},
+        querySelector(selector){return element(key+' '+selector);},replaceChildren(){this.children=[];},append(child){this.children.push(child);},focus(){doc.activeElement=this;},contains(target){return this===target || this.children.includes(target);},
         setAttribute(name,value){this.attributes[name]=value;},removeAttribute(name){delete this.attributes[name];},addEventListener(name, fn){this.handlers[name]=fn;}};
       if (key === 'img') Object.defineProperty(value, 'src', {
         get() { return this.currentSrc; },
@@ -153,7 +153,7 @@ test('pair completion polling resumes automatically without a reconnect click', 
   const f=await fixture();
   f.client.ontoolresult({structuredContent:{state:'pairing_required'}});
   f.client.respond=async request=>request.name==='tapilot_preview_pair'
-    ? {structuredContent:{url:'http://127.0.0.1:1234/pair'}} : {structuredContent:live};
+    ? {structuredContent:request.arguments.action === 'pair' ? {url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000} : {paired:true}} : {structuredContent:live};
   await f.element('#pair').onclick();
   assert.equal(f.timers.at(-1).delay,0);
   await f.timers.at(-1).fn();
@@ -179,10 +179,11 @@ test('failed reconnect shows connection recovery without an ambiguous phone-acti
   assert.equal(f.element('#resume').hidden, true);
 });
 
-test('unreachable phone offers pairing and renders expiring QR from UI-only metadata', async () => {
+test('unreachable phone offers retry; explicit add-device renders expiring QR', async () => {
   const f = await fixture();
   f.client.ontoolresult({structuredContent:{state:'unavailable'}});
-  assert.equal(f.element('#pair').hidden, false);
+  assert.equal(f.element('#pair').hidden, true);
+  assert.equal(f.element('#installation').hidden, true);
   f.client.respond = async () => ({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
   await f.element('#pair').onclick();
   assert.equal(f.element('#pairing-qr').hidden, false);
@@ -198,11 +199,11 @@ test('unreachable phone offers pairing and renders expiring QR from UI-only meta
 test('Chinese host locale wins over English phone responses and follows host changes', async () => {
   const f = await fixture('zh-CN');
   f.client.ontoolresult({structuredContent:{state:'unavailable',language:'en'}});
-  assert.match(f.element('[role=status]').textContent, /无法连接手机/);
+  assert.match(f.element('[role=status]').textContent, /自动重连/);
   f.client.onhostcontextchanged({locale:'en-US'});
-  assert.match(f.element('[role=status]').textContent, /Cannot connect/);
+  assert.match(f.element('[role=status]').textContent, /Reconnecting automatically/);
   f.client.ontoolresult({structuredContent:{state:'unavailable',language:'zh'}});
-  assert.match(f.element('[role=status]').textContent, /Cannot connect/);
+  assert.match(f.element('[role=status]').textContent, /Reconnecting automatically/);
 });
 
 test('inline scan waits for user confirmation and restores frames without opening a browser', async () => {
@@ -308,9 +309,10 @@ test('paired phones are directly visible and selection updates connection action
   assert.equal(second.children[1].textContent, 'Not connected');
   await second.onclick();
   assert.equal(f.element('#devices-list').children[1].attributes['aria-pressed'], 'true');
-  assert.equal(f.element('#device-connect').hidden, false);
+  assert.equal(f.element('#device-connect').hidden, true);
   assert.equal(f.element('#device-disconnect').hidden, true);
-  assert.equal(f.doc.activeElement, f.element('#devices-list').children[1]);
+  assert.equal(f.element('#devices-panel').open, false);
+  assert.equal(f.doc.activeElement, f.element('#devices-panel summary'));
 });
 test('pairing another phone keeps current connection and cancel restores its preview', async () => {
   const f = await fixture('en'); await loadPicker(f);
@@ -359,7 +361,7 @@ test('failed device refresh invalidates cached connected state and allows reconn
   f.element('#devices-panel').open = true;
   await f.element('#devices-panel').ontoggle();
   assert.equal(f.element('#devices-list').children[0].children[1].textContent, 'Status unknown');
-  assert.equal(f.element('#device-connect').hidden, false);
+  assert.equal(f.element('#device-connect').hidden, true);
   assert.equal(f.element('#device-disconnect').hidden, true);
 });
 
@@ -369,8 +371,8 @@ test('unavailable preview invalidates the previously connected device label', as
   f.element('#devices-panel').open = true;
   await f.element('#devices-panel').ontoggle();
   f.client.ontoolresult({structuredContent:{state:'unavailable'}});
-  assert.equal(f.element('#devices-list').children[0].children[1].textContent, 'Status unknown');
-  assert.equal(f.element('#device-connect').hidden, false);
+  assert.equal(f.element('#devices-list').children[0].children[1].textContent, 'Reconnecting');
+  assert.equal(f.element('#device-connect').hidden, true);
 });
 
 test('clicking a saved device connects once and ignores repeated clicks while connecting', async () => {
@@ -382,7 +384,7 @@ test('clicking a saved device connects once and ignores repeated clicks while co
   const row = f.element('#devices-list').children[1];
   const connecting = row.onclick();
   await row.onclick();
-  assert.equal(f.element('[role=status]').textContent, 'Connecting to phone…');
+  assert.equal(f.element('[role=status]').textContent, 'Connecting… Phone B');
   assert.deepEqual(f.client.calls.map(r=>r.arguments), [{action:'connect',device_id:phoneB.id}]);
   pending.resolve({structuredContent:{state:'live'}});
   await connecting;
@@ -397,7 +399,7 @@ for (const locale of ['zh-CN','en']) test(`device connection errors follow host 
     ? {isError:true,structuredContent:{state:'unavailable',language:'en'},content:[{type:'text',text:'Phone connection failed. Check Wi-Fi and enable wireless control on the phone.'}]}
     : {structuredContent:{devices:[phoneA,phoneB]}};
   await f.element('#devices-list').children[1].onclick();
-  assert.match(f.element('[role=alert]').textContent, locale==='zh-CN' ? /同一局域网 Wi-Fi.*亮屏并解锁/ : /same local Wi-Fi.*screen is on and unlocked/);
+  assert.match(f.element('#recovery').textContent, locale==='zh-CN' ? /同一局域网 Wi-Fi.*亮屏并解锁/ : /same local Wi-Fi.*screen is on and unlocked/);
   assert.equal(f.element('#device-connect').disabled, false);
 });
 
@@ -407,7 +409,73 @@ test('successful automatic recovery clears the earlier connection error', async 
     ? {isError:true,structuredContent:{state:'unavailable'},content:[{type:'text',text:'Phone connection failed. Check Wi-Fi and enable wireless control on the phone.'}]}
     : {structuredContent:{devices:[phoneA,phoneB]}};
   await f.element('#devices-list').children[1].onclick();
-  assert.equal(f.element('[role=alert]').hidden,false);
-  f.client.ontoolresult({structuredContent:live});
+  assert.equal(f.element('#recovery-details').hidden,false);
   assert.equal(f.element('[role=alert]').hidden,true);
+  f.client.ontoolresult({structuredContent:live});
+  assert.equal(f.element('#recovery-details').hidden,true);
+  assert.equal(f.element('[role=alert]').hidden,true);
+});
+
+test('failed switch keeps picker open and offers retry only for failed target', async () => {
+  const f = await fixture('en'); await loadPicker(f);
+  const pending = deferred();
+  f.client.respond = request => request.arguments.action === 'connect' ? pending.promise : Promise.resolve({structuredContent:{devices:[{...phoneA,selected:false}, {...phoneB,selected:true}]}});
+  const work = f.element('#devices-list').children[1].onclick();
+  assert.equal(f.element('#devices-list').children[1].attributes['aria-busy'], 'true');
+  pending.resolve({isError:true,structuredContent:{state:'unavailable'}});
+  await work;
+  assert.equal(f.element('#devices-panel').open, true);
+  assert.equal(f.element('#device-connect').hidden, false);
+  assert.equal(f.element('#devices-list').children[1].attributes['aria-busy'], 'false');
+  f.client.ontoolresult({structuredContent:live});
+  assert.equal(f.element('#device-connect').hidden, true);
+});
+
+test('device keyboard navigation wraps and supports Home, End and Escape', async () => {
+  const f = await fixture('en'); await loadPicker(f);
+  const list = f.element('#devices-list');
+  list.children[0].focus();
+  const key = key => list.handlers.keydown({key,preventDefault(){}});
+  key('ArrowDown'); assert.equal(f.doc.activeElement, list.children[1]);
+  key('ArrowDown'); assert.equal(f.doc.activeElement, list.children[0]);
+  key('End'); assert.equal(f.doc.activeElement, list.children[1]);
+  key('Home'); assert.equal(f.doc.activeElement, list.children[0]);
+  f.doc.handlers.keydown({key:'Escape'});
+  assert.equal(f.element('#devices-panel').open, false);
+  assert.equal(f.doc.activeElement, f.element('#devices-panel summary'));
+});
+
+test('expired pairing remains visible and can refresh or cancel without losing devices', async () => {
+  const f = await fixture('zh-CN'); await loadPicker(f);
+  f.client.respond = async () => ({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()-1}});
+  await f.element('#device-pair').onclick();
+  await f.timers.at(-1).fn();
+  assert.equal(f.element('#pair-refresh').hidden, false);
+  assert.equal(f.element('#pairing-status').textContent, '二维码已过期');
+  assert.equal(f.element('#pair-cancel').hidden, false);
+  f.client.respond = async () => ({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
+  await f.element('#pair-refresh').onclick();
+  assert.equal(f.element('#pair-refresh').hidden, true);
+  assert.equal(f.element('#pairing-qr').hidden, false);
+  await f.element('#pair-cancel').onclick();
+  assert.equal(f.element('.device-picker').hidden, false);
+});
+
+test('only active device gets lock status; IP stays in device details', async () => {
+  const f = await fixture('en'); await loadPicker(f, [{...phoneA,host:'192.168.1.2'},phoneB]);
+  f.client.ontoolresult({structuredContent:{state:'device_locked',device_host:'192.168.1.2'}});
+  assert.equal(f.element('#devices-list').children[0].children[1].textContent, 'Unlock phone');
+  assert.equal(f.element('#devices-list').children[1].children[1].textContent, 'Not connected');
+  assert.match(f.element('[role=status]').textContent, /Phone A/);
+  assert.doesNotMatch(f.element('[role=status]').textContent, /192\.168/);
+  assert.match(f.element('#device-details').textContent, /192\.168\.1\.2/);
+});
+
+test('a click inside a rebuilt picker is not mistaken for an outside click', async () => {
+  const f = await fixture('en'); await loadPicker(f);
+  const oldRow = f.element('#devices-list').children[1];
+  f.doc.handlers.click({target:oldRow,composedPath:()=>[oldRow,f.element('#devices-list'),f.element('#devices-panel')]});
+  assert.equal(f.element('#devices-panel').open,true);
+  f.doc.handlers.click({target:f.element('outside'),composedPath:()=>[f.element('outside')]});
+  assert.equal(f.element('#devices-panel').open,false);
 });

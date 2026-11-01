@@ -6,7 +6,7 @@ import { fork } from "node:child_process";
 import lockfile from "proper-lockfile";
 import { stateRoot } from "./state-paths.mjs";
 
-export const runtimeVersion = "0.6.8";
+export const runtimeVersion = "0.6.9";
 export function runtimePaths() {
   const root = stateRoot();
   const config = resolve(
