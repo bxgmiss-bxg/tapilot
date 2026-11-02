@@ -161,6 +161,7 @@ class NativeConversationCoordinator(
         if (conversations.none { it.id == active() }) conversations.add(0, ChatConversation(active(), local("新对话", "New conversation")))
         val model = profile()
         emit(ChatState(ready = ready, language = AppLanguage.resolved(activity), dark = AppTheme.isDark(activity), paletteId = AppTheme.paletteId(activity),
+            showFirstTaskGuide = ready && FirstTaskGuide.visible(data),
             advancedMode = data.optBoolean("advanced"), executionMode = ExecutionMode.from(data), activeConversationId = active(), messages = messages, conversations = conversations,
             draft = data.optString("draft"), draftEpoch = draftEpoch, running = running,
             configured = if (data.optBoolean("chatgptConversation")) chatGpt.ready else model.optString("baseUrl").isNotBlank() && model.optString("modelName").isNotBlank() && model.optString("modelFamily").isNotBlank() && hasKey(preset),
@@ -169,7 +170,6 @@ class NativeConversationCoordinator(
             attachment = ChatAttachment.parse(pendingAttachment), preview = preview,
             progress = if (inputControl.paused && running && !cancellation.get()) progress?.copy(
                 title = local("已暂停 · 发送或离开聊天后继续", "Paused · send or leave to resume"), operation = "") else progress,
-            showFirstTaskGuide = ready && FirstTaskGuide.visible(data),
             confirmation = confirmationText))
     }
     fun command(value: JSONObject) {
@@ -190,15 +190,15 @@ class NativeConversationCoordinator(
                     submit(value.optString("text", data.optString("draft")))
                     if (preservedDraft != null) { data.put("draft", preservedDraft); draftEpoch++; save() }
                 }
+                "firstTaskExample" -> if (!running && pendingAttachment == null && data.optString("draft").isBlank()) {
+                    data.put("draft", FirstTaskGuide.example(chinese)); draftEpoch++; save(); focus()
+                }
+                "dismissFirstTask" -> if (!running) { data.put("firstTaskDismissed", true); save() }
                 "executionMode" -> {
                     val mode = ExecutionMode.entries.firstOrNull { it.wireValue == value.optString("text") }
                         ?: error("Unknown execution mode")
                     preference("executionMode", mode.wireValue)
                 }
-                "firstTaskExample" -> if (!running && pendingAttachment == null && data.optString("draft").isBlank()) {
-                    data.put("draft", FirstTaskGuide.example(chinese)); draftEpoch++; save(); focus()
-                }
-                "dismissFirstTask" -> if (!running) { data.put("firstTaskDismissed", true); save() }
                 "stop" -> stop()
                 "settings" -> if (!running) { messageLoads.discard(); settingsOpen = true; settings.clearStatus() }
                 "advanced" -> if (!running && data.optBoolean("advanced")) { messageLoads.discard(); advancedOpen = true }

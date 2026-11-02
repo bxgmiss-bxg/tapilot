@@ -43,6 +43,7 @@ data class ChatProgress(val title: String, val detail: String, val operation: St
 
 data class ChatState(
     val ready: Boolean = false,
+    val showFirstTaskGuide: Boolean = false,
     val language: String = "zh",
     val dark: Boolean = false,
     val paletteId: String = "minimal",
@@ -66,7 +67,6 @@ data class ChatState(
     val confirmation: String? = null,
     val preview: ChatAttachment? = null,
     val progress: ChatProgress? = null,
-    val showFirstTaskGuide: Boolean = false,
 ) {
     val chinese: Boolean get() = language == "zh"
 
