@@ -1,3 +1,4 @@
+import { createStepProgress, runDirectStep } from './step-progress.mjs';
 import { failedActionProgress } from './action-progress.mjs';
 import { verifyPhone } from './phone-verification.mjs';
 import { AndroidAccessibilityDevice } from '@tapilot/android-accessibility';
@@ -14,6 +15,7 @@ import { withSettledScreenshots, nativeFingerprint } from './settled-capture.mjs
 import { StdioNativeBridge } from './stdio-native-bridge.mjs';
 import { siwcFetch, measuredFetch, observeModelNetwork } from './siwc-fetch.mjs';
 
+const emitStep = event => process.stdout.write(`MIDSCENE_EVENT ${JSON.stringify(event)}\n`);
 let activeAgentProvider;
 const assistantLanguage =
   process.env.MIDSCENE_ANDROID_ASSISTANT_LANGUAGE === 'zh' ? 'zh' : 'en';
@@ -79,6 +81,7 @@ const setup = defineProjectSetup({
             replanningCycleLimit: 100,
             aiContexts: { aiAct: defaultAIActContext },
           });
+          agent.onDumpUpdate = createStepProgress(emitStep, runId);
           agents.set(runId, agent);
         }
         return agent;
@@ -131,7 +134,7 @@ const systemNode = (name, actionName, summary) =>
         .find((candidate) => candidate.name === actionName);
       if (!action)
         throw new Error(`Android action is unavailable: ${actionName}`);
-      await action.call({});
+      await runDirectStep(actionName, () => action.call({}), emitStep);
       return { summary };
     },
   });
@@ -145,7 +148,8 @@ const launchNode = defineNode({
       .actionSpace()
       .find((candidate) => candidate.name === 'Launch');
     if (!action) throw new Error('Android Launch action is unavailable');
-    await action.call(input);
+    await runDirectStep('Launch', () => action.call(input), emitStep,
+      /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(input.uri) ? input.uri : '');
     // startActivity returns before the window transition. Direct nodes bypass
     // aiAct's post-action wait; allow the new window to appear before aiQuery.
     await new Promise(resolve => setTimeout(resolve, 500));

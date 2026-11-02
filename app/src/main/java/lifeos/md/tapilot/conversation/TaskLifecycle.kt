@@ -37,6 +37,7 @@ object TaskLifecycle {
         entry.put("updatedAt", System.currentTimeMillis())
     }
     fun finish(entry: JSONObject, status: String, phase: String = "") {
+        lifeos.md.tapilot.chat.ExecutionSteps.settle(entry)
         entry.put("phase", terminalPhase(status, phase))
             .put("completedAt", System.currentTimeMillis())
     }
