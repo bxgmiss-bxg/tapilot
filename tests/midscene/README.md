@@ -69,14 +69,20 @@ E2E` job uses [`web-infra-dev/midscene-action`](https://github.com/web-infra-dev
 at the same pinned revision used by [Midscene's own AI workflow](https://github.com/web-infra-dev/midscene/blob/main/.github/workflows/ai.yml).
 The Action runs the actual smoke suite, uploads `midscene_run/` and `.midscene/`,
 and includes native results in the Actions Summary. A failed command remains a
-failed job. Reports are retained for seven days; Cloudflare publishing is disabled.
+failed job. Raw artifacts are retained for seven days. The Action publishes a per-run
+Cloudflare Workers preview URL using the dedicated `tapilot-midscene-reports`
+Worker. Use a dedicated phone with synthetic test data: these report previews
+contain screenshots and are accessible through their URL.
 The ordinary `Midscene E2E checks` job remains model-free.
 
 Provision a dedicated Linux runner with labels `self-hosted`, `Linux`,
 `tapilot-android`, and an attached, unlocked ARM64 Android phone. Keep the phone
 awake while charging. Repository settings must contain:
 
-- Secret: `MIDSCENE_MODEL_API_KEY`.
+- Secrets: `MIDSCENE_MODEL_API_KEY`, `CLOUDFLARE_API_TOKEN`.
+- Variable: `CLOUDFLARE_ACCOUNT_ID`. The token must allow publishing to
+  `tapilot-midscene-reports`; enable Preview URLs on that Worker. See the
+  [Action token setup guide](https://github.com/web-infra-dev/midscene-action#publish-reports-to-cloudflare-workers).
 - Variables: `MIDSCENE_MODEL_BASE_URL`, `MIDSCENE_MODEL_NAME`,
   `MIDSCENE_MODEL_FAMILY`, `TAPILOT_E2E_DEVICE_ID`, and
   `TAPILOT_E2E_DEDICATED_DEVICE=1`.

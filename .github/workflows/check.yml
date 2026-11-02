@@ -23,6 +23,8 @@ jobs:
       - name: Require dedicated device and model configuration before queuing a runner
         shell: bash
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           TAPILOT_E2E_DEVICE_ID: ${{ vars.TAPILOT_E2E_DEVICE_ID }}
           TAPILOT_E2E_DEDICATED_DEVICE: ${{ vars.TAPILOT_E2E_DEDICATED_DEVICE }}
           MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
@@ -32,7 +34,7 @@ jobs:
         run: |
           set -euo pipefail
           missing=0
-          for name in TAPILOT_E2E_DEVICE_ID MIDSCENE_MODEL_API_KEY MIDSCENE_MODEL_BASE_URL MIDSCENE_MODEL_NAME MIDSCENE_MODEL_FAMILY; do
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID TAPILOT_E2E_DEVICE_ID MIDSCENE_MODEL_API_KEY MIDSCENE_MODEL_BASE_URL MIDSCENE_MODEL_NAME MIDSCENE_MODEL_FAMILY; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Configure repository Actions secret/variable $name"
               missing=1
@@ -117,7 +119,10 @@ jobs:
           command: npm run check:model && npm test -- cases/smoke.yaml
           artifact-name: midscene-android-e2e-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: '7'
-          publish-pages: 'false'
+          publish-pages: 'true'
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          cloudflare-worker-name: tapilot-midscene-reports
 
   midscene-e2e:
     name: Midscene E2E checks
