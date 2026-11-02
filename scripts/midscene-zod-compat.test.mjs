@@ -5,14 +5,15 @@ import path from 'node:path';
 import os from 'node:os';
 import { patchMidsceneZod } from '../plugins/tapilot/scripts/patch-midscene-zod.mjs';
 
-test('Zod compatibility patches only pinned Midscene imports and is idempotent', () => {
+for (const version of ['1.15.2', '1.15.2-beta-20261012093542.0', '1.15.3', '1.17.4']) {
+test(`Zod compatibility patches reviewed Midscene ${version} imports and is idempotent`, () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'tapilot-zod-'));
   try {
     fs.writeFileSync(path.join(root, 'package.json'), '{}');
     const dir = path.join(root, 'node_modules/@midscene/core');
     fs.mkdirSync(path.join(dir, 'dist'), {recursive:true});
     const manifest = path.join(dir, 'package.json');
-    fs.writeFileSync(manifest, JSON.stringify({name:'@midscene/core',version:'1.15.2',main:'dist/index.js'}));
+    fs.writeFileSync(manifest, JSON.stringify({name:'@midscene/core',version,main:'dist/index.js'}));
     const file = path.join(dir, 'dist/index.js');
     fs.writeFileSync(file, 'const z = require("zod"); // zod is retained, only its API entry changes\n');
     assert.equal(patchMidsceneZod(root), 1);
@@ -22,3 +23,4 @@ test('Zod compatibility patches only pinned Midscene imports and is idempotent',
     assert.throws(() => patchMidsceneZod(root), /Review Zod compatibility/);
   } finally { fs.rmSync(root, {recursive:true,force:true}); }
 });
+}
