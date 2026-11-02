@@ -20,6 +20,12 @@ class TaskHandoffStateTest {
         assertNull(TaskHandoffState.pending(listOf(next, old), "chat"))
         assertNull(TaskHandoffState.pending(listOf(old, next), "chat"))
     }
+    @Test fun openingFloatingPanelOffersContinuationAfterItStopsTheTask() {
+        val paused = task("a", 1).put("stopReason", "panel")
+        assertSame(paused, TaskHandoffState.pending(listOf(paused), "chat"))
+        paused.put("status", "running")
+        assertNull(TaskHandoffState.pending(listOf(paused), "chat"))
+    }
     @Test fun ordinaryStopDoesNotOfferManualHandoff() {
         assertNull(TaskHandoffState.pending(listOf(task("a", 1).put("stopReason", "user")), "chat"))
     }

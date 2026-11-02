@@ -8,7 +8,7 @@ internal object TaskHandoffState {
         .filter { it.optString("conversationId", it.optString("id")) == conversationId && it.optString("kind", "task") == "task" }
         .maxByOrNull { it.optLong("createdAt") }
         ?.takeIf {
-            (it.optString("status") == "stopped" && it.optString("stopReason") == "user_handoff") ||
+            (it.optString("status") == "stopped" && it.optString("stopReason") in setOf("user_handoff", "panel")) ||
                 it.optString("status") == "waiting_user"
         }
 }

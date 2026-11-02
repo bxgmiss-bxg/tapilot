@@ -67,6 +67,7 @@ the saved task context and asks the agent to inspect the current screen before
 acting. It does not resend the original task as a fresh request. A saved composer
 draft is retained. A task waiting for your answer also offers these controls.
 Leaving the chat after a confirmed handoff does not restart the task.
+Tasks stopped by opening the floating conversation panel also show the handoff card.
 
 ## Try it
 
