@@ -4,17 +4,19 @@ import { AjvJsonSchemaValidator } from "@modelcontextprotocol/sdk/validation/ajv
 export const panelTools = [
   {
     name:'tapilot_devices', description:'App-only saved devices: list, connect, disconnect, or remove local pairing.',
-    inputSchema:{type:'object',properties:{action:{type:'string',enum:['list','connect','disconnect','forget']},
-      device_id:{type:'string',pattern:'^[a-f0-9]{64}$'}},required:['action'],additionalProperties:false},
+    inputSchema:{type:'object',properties:{action:{type:'string',enum:['list','connect','disconnect','forget','update_address']},
+      device_id:{type:'string',pattern:'^[a-f0-9]{64}$'},host:{type:'string'},port:{type:'integer',minimum:1024,maximum:65535}},required:['action'],additionalProperties:false},
     _meta:{ui:{visibility:['app']}},
   },
   {
     name: "tapilot_preview_open",
     description:
-      "The only screen panel opener. Call first when the user explicitly invokes Tapilot (including a standalone plugin mention), requests its panel, or starts a phone viewing, pairing, or control task. Open before CLI/device checks if no Tapilot panel is already open. Mere discussion of plugin code or documentation does not require opening. For an open-only request, open the panel and stop; no phone actions are needed. Reuse the existing panel for all subsequent observations/actions; call again only after the user closes it or explicitly requests reopening.",
+      "The only screen panel opener. At the start of EACH USER TURN that invokes Tapilot, requests its panel, or starts or continues a phone viewing, pairing, or control task, call once with recover:true BEFORE CLI/device checks, even if an earlier panel is open. Recovery requests a fresh host widget session so a crashed previous view is not reused; it does not reset phone pairing, resume a privacy pause, or replay phone actions. Reuse the panel for all remaining actions in the same turn. Plain opens reuse the current widget session. Mere discussion of plugin code does not require opening. For an open-only request, open and stop.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        recover: {type:"boolean", description:"Request a fresh host panel session. Use once at the start of each user turn involving the phone, or when the user asks to recover a grey/crashed panel."},
+      },
       additionalProperties: false,
     },
     _meta: {
@@ -103,7 +105,7 @@ export const panelTools = [
 ];
 
 for (const tool of panelTools) {
-  if (['tapilot_preview_frame','tapilot_preview'].includes(tool.name))
+  if (['tapilot_preview_frame','tapilot_preview','tapilot_preview_resume'].includes(tool.name))
     tool.inputSchema.properties.viewer_id = {type:'string',pattern:'^[A-Za-z0-9_-]{1,64}$'};
 }
 

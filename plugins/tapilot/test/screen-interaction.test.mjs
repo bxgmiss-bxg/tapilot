@@ -115,7 +115,8 @@ test('unpaired panel provides a local pairing window without phone access', asyn
   assert.equal(f.element('#pairing-link').href,'http://127.0.0.1:1234/pair');
   f.client.respond=async()=>({structuredContent:{url:'https://example.com/untrusted'}});
   await f.element('#pair').onclick();
-  assert.match(f.element('[role=alert]').textContent,/Cannot create/);
+  assert.match(f.element('#pairing-status').textContent,/Could not create/);
+  assert.equal(f.element('#pair-refresh').hidden,false);
 });
 
 test('host tool results cannot reveal a backgrounded or closed panel', async()=>{
@@ -164,8 +165,10 @@ test('pair completion polling resumes automatically without a reconnect click', 
 test('phone language is a fallback when the host provides no locale', async()=>{
   const f=await fixture();
   f.client.ontoolresult({structuredContent:{...live,language:'zh'}});
+  await Promise.resolve();
   assert.match(f.element('[role=status]').textContent,/已连接/);
   f.client.ontoolresult({structuredContent:{...live,language:'en'}});
+  await Promise.resolve();
   assert.match(f.element('[role=status]').textContent,/Connected/);
 });
 
@@ -478,4 +481,238 @@ test('a click inside a rebuilt picker is not mistaken for an outside click', asy
   assert.equal(f.element('#devices-panel').open,true);
   f.doc.handlers.click({target:f.element('outside'),composedPath:()=>[f.element('outside')]});
   assert.equal(f.element('#devices-panel').open,false);
+});
+
+test('live metadata without pixels cannot claim a visible connected screen', async () => {
+  const f = await fixture('en');
+  f.client.ontoolresult({structuredContent:{state:'live'}});
+  assert.equal(f.element('img').hidden,true);
+  assert.doesNotMatch(f.element('[role=status]').textContent,/Connected ·/);
+});
+
+test('failed image decoding leaves a recoverable status instead of connected', async () => {
+  const f = await fixture('en',{autoLoad:false});
+  f.element('img').onerror();
+  assert.equal(f.element('img').hidden,true);
+  assert.doesNotMatch(f.element('[role=status]').textContent,/Connected ·/);
+  assert.equal(f.element('#resume').hidden,false);
+});
+
+test('address recovery connects only after the server verifies the new address', async () => {
+  const f=await fixture('en'); await loadPicker(f);
+  f.element('#device-address').value='100.82.240.18:39877';
+  f.client.calls=[];
+  f.client.respond=async request=>request.arguments.action==='update_address'
+    ? {isError:true,content:[{type:'text',text:'Could not verify the paired phone at this address. Check the phone IP, wireless control, and network isolation.'}]}
+    : {structuredContent:{devices:[phoneA,phoneB]}};
+  await f.element('#device-address-save').onclick();
+  assert.equal(f.client.calls.some(r=>r.arguments.action==='connect'),false);
+  assert.match(f.element('[role=alert]').textContent,/Could not verify/);
+  f.client.calls=[];
+  f.client.respond=async()=>({structuredContent:{devices:[phoneA,phoneB],state:'live'}});
+  await f.element('#device-address-save').onclick();
+  assert.deepEqual(f.client.calls.filter(r=>r.arguments.action!=='list').map(r=>r.arguments.action),['update_address','connect']);
+});
+
+test('slow preview clears the old screen and connected label while awaiting the response', async () => {
+  const f=await fixture('en'); await loadPicker(f);
+  const pending=deferred();f.client.respond=()=>pending.promise;
+  const poll=f.timers.find(timer=>timer.delay===0).fn;
+  const work=poll();
+  f.timers.find(timer=>timer.delay===5000).fn();
+  assert.equal(f.element('img').hidden,true);
+  assert.doesNotMatch(f.element('[role=status]').textContent,/Connected ·/);
+  pending.resolve({structuredContent:live});await work;await Promise.resolve();
+  assert.match(f.element('[role=status]').textContent,/Connected ·/);
+});
+
+test('QR creation shows progress and cancellation ignores a late QR response', async () => {
+  const f=await fixture('en'), pending=deferred();
+  f.client.respond=request=>request.arguments.action==='pair'?pending.promise:Promise.resolve({structuredContent:{cancelled:true}});
+  const opening=f.element('#pair').onclick();
+  assert.equal(f.element('#pairing-status').hidden,false);
+  assert.equal(f.element('#pairing-status').textContent,'Creating QR code…');
+  assert.equal(f.element('#pair-cancel').disabled,false);
+  await f.element('#pair-cancel').onclick();
+  pending.resolve({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
+  await opening;
+  assert.equal(f.element('#pairing-qr').hidden,true);
+  assert.equal(f.element('#devices-panel').hidden,false);
+});
+
+test('QR creation deadline leaves visible retry and cancel actions', async () => {
+  const f=await fixture('en');f.client.respond=()=>new Promise(()=>{});
+  const opening=f.element('#pair').onclick();
+  f.timers.find(timer=>timer.delay===12000).fn();
+  await opening;
+  assert.equal(f.element('#pair-refresh').hidden,false);
+  assert.equal(f.element('#pair-refresh').disabled,false);
+  assert.equal(f.element('#pair-cancel').disabled,false);
+  assert.match(f.element('#pairing-status').textContent,/Could not create/);
+});
+
+test('connection failures expose scan recovery without asking the user for an IP', async () => {
+  const f=await fixture('en');f.client.ontoolresult({structuredContent:{state:'unavailable'}});
+  assert.equal(f.element('#reconnect-pair').hidden,false);
+  f.client.respond=async()=>({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
+  await f.element('#reconnect-pair').onclick();
+  assert.equal(f.element('#pairing-qr').hidden,false);
+  assert.equal(f.element('#reconnect-pair').hidden,true);
+});
+
+test('pairing checks at 300ms and shows confirmation without waiting for the device list', async () => {
+ const f=await fixture('en');
+ f.client.respond=async()=>({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
+ await f.element('#pair').onclick();
+ f.client.calls=[];
+ f.client.respond=async request=>{
+   assert.equal(request.arguments.action,'pair_status');
+   return {structuredContent:{pending:{host:'192.168.1.20'}}};
+ };
+ await f.timers.at(-1).fn();
+ assert.equal(f.element('#pair-confirm').hidden,false);
+ assert.equal(f.timers.at(-1).delay,300);
+ assert.equal(f.client.calls.length,1);
+});
+
+const qrResult = () => ({structuredContent:{url:'http://127.0.0.1:1234/pair',expires_at:Date.now()+300000},_meta:{pairingQr:'data:image/png;base64,AA=='}});
+
+test('a stalled old preview cannot block scan status or overwrite its polling timer', async () => {
+ const f=await fixture('en'); await loadPicker(f);
+ const pending=deferred();
+ f.client.respond=request=>request.name==='tapilot_preview_frame'?pending.promise:Promise.resolve(qrResult());
+ const oldPoll=f.timers.at(-1).fn();
+ await Promise.resolve();
+ await f.element('#pair').onclick();
+ f.client.respond=async()=>({structuredContent:{pending:{host:'192.168.1.20'}}});
+ await f.timers.at(-1).fn();
+ assert.equal(f.element('#pair-confirm').hidden,false);
+ assert.equal(f.timers.at(-1).delay,300);
+ const timer=f.timers.at(-1);
+ pending.resolve({structuredContent:live}); await oldPoll;
+ assert.equal(f.timers.at(-1),timer);
+});
+
+test('cancelling a visible QR immediately restores a recoverable screen', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ f.client.respond=async()=>({structuredContent:{cancelled:true}});
+ await f.element('#pair-cancel').onclick();
+ assert.equal(f.element('#pairing-qr').hidden,true);
+ assert.equal(f.element('#resume').hidden,false);
+ assert.doesNotMatch(f.element('[role=status]').textContent,/Scan with your phone/);
+ assert.equal(f.element('img').hidden,true);
+});
+
+test('scan status transport failure exposes retry instead of leaving an inert QR', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ f.client.respond=async()=>{throw Error('host transport failed');};
+ await f.timers.at(-1).fn();
+ assert.equal(f.element('#pair-refresh').hidden,false);
+ assert.equal(f.element('#pairing-qr').hidden,true);
+});
+
+test('pair confirmation shows progress and clears the QR on completion', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ const pending=deferred();f.client.respond=request=>request.arguments.action==='pair_confirm'?pending.promise:Promise.resolve({structuredContent:{devices:[]}});
+ const work=f.element('#pair-confirm').onclick();
+ assert.match(f.element('#pairing-status').textContent,/Confirming/);
+ pending.resolve({structuredContent:{paired:true}});await work;
+ assert.equal(f.element('#pairing-qr').hidden,true);
+});
+
+test('pairing disables unrelated disconnect and pause actions', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ f.client.calls=[];
+ assert.equal(f.element('#disconnect').disabled,true);
+ assert.equal(f.element('#pause').disabled,true);
+ await f.element('#disconnect').onclick();
+ await f.element('#pause').onclick();
+ assert.equal(f.client.calls.length,0);
+});
+
+test('forgetting the active phone removes its stale name from the screen', async () => {
+ const f=await fixture('en');await loadPicker(f);
+ f.client.respond=async()=>({structuredContent:{state:'disconnected',devices:[]}});
+ await f.element('#device-forget-confirm').onclick();
+ assert.equal(f.element('#device-details').textContent,'');
+ assert.doesNotMatch(f.element('[role=status]').textContent,/Phone A/);
+});
+
+test('returning after QR creation was interrupted does not leave every button disabled', async () => {
+ const f=await fixture('en'),pending=deferred();f.client.respond=()=>pending.promise;
+ const opening=f.element('#pair').onclick();
+ f.win.handlers.pagehide();f.win.handlers.pageshow();
+ pending.resolve(qrResult());await opening;
+ assert.equal(f.element('#pair').disabled,false);
+ assert.equal(f.element('#device-pair').disabled,false);
+ assert.equal(f.element('#pairing-qr').hidden,true);
+});
+
+test('a hung scan-status request times out into retry and ignores its late answer', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ const pending=deferred();f.client.respond=()=>pending.promise;
+ const work=f.timers.at(-1).fn();
+ f.timers.at(-1).fn();
+ await work;
+ assert.equal(f.element('#pair-refresh').hidden,false);
+ pending.resolve({structuredContent:{pending:{host:'192.168.1.20'}}});await Promise.resolve();
+ assert.equal(f.element('#pair-confirm').hidden,true);
+});
+
+test('a failed pairing confirmation restores controls and ignores an older scan status', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ const status=deferred(),confirmation=deferred();
+ f.client.respond=request=>request.arguments.action==='pair_status'?status.promise:confirmation.promise;
+ const polling=f.timers.at(-1).fn();
+ const confirming=f.element('#pair-confirm').onclick();
+ status.resolve({structuredContent:{paired:true}});await polling;
+ assert.equal(f.element('#pairing-qr').hidden,false);
+ assert.match(f.element('#pairing-status').textContent,/Confirming/);
+ confirmation.resolve({isError:true,content:[{type:'text',text:'Phone connection timed out'}]});await confirming;
+ assert.equal(f.element('#pair-confirm').disabled,false);
+ assert.equal(f.element('#pair-cancel').disabled,false);
+ assert.equal(f.element('[role=alert]').hidden,false);
+});
+
+test('reconnect renders its returned frame immediately and keeps its viewer identity', async () => {
+ const f=await fixture('en');f.client.respond=async()=>({structuredContent:live});
+ await f.element('#resume').onclick();
+ await Promise.resolve();
+ assert.equal(f.element('img').hidden,false);
+ assert.equal(f.back.disabled,false);
+ const resumed=f.client.calls.find(r=>r.name==='tapilot_preview_resume');
+ assert.ok(resumed.arguments.viewer_id);
+ await f.back.onclick();
+ const control=f.client.calls.find(r=>r.name==='tapilot_preview_control');
+ assert.equal(control.arguments.viewer_id,resumed.arguments.viewer_id);
+});
+
+test('missing QR image offers the pairing window without a false generating message', async () => {
+ const f=await fixture('en');
+ f.client.respond=async()=>({...qrResult(),_meta:{}});
+ await f.element('#pair').onclick();
+ assert.equal(f.element('#pairing-link').hidden,false);
+ assert.doesNotMatch(f.element('#pairing-status').textContent,/Creating/);
+ assert.match(f.element('#pairing-status').textContent,/window/);
+});
+
+test('QR image decoding failure offers refresh and ignores errors from an old QR', async () => {
+ const f=await fixture('en');f.client.respond=async()=>qrResult();
+ await f.element('#pair').onclick();
+ const oldError=f.element('#pairing-qr').onerror;
+ assert.equal(typeof oldError,'function');
+ oldError();
+ assert.equal(f.element('#pairing-qr').hidden,true);
+ assert.equal(f.element('#pair-refresh').hidden,false);
+ assert.equal(f.element('#pairing-link').hidden,false);
+ await f.element('#pair-refresh').onclick();
+ oldError();
+ assert.equal(f.element('#pairing-qr').hidden,false);
+ assert.equal(f.element('#pair-refresh').hidden,true);
 });

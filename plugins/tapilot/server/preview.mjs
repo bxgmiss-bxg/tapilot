@@ -1,7 +1,7 @@
 import { t, connectionErrorMessage } from '../ui/i18n.mjs';
 import { randomUUID } from 'node:crypto';
 import { control, imageSize } from './panel-controls.mjs';
-export const SCREEN_URI = 'ui://tapilot/screen-0.6.9.html';
+export const SCREEN_URI = 'ui://tapilot/screen-0.6.15.html';
 export const SCREEN_META = { ui: { csp: { connectDomains: [], resourceDomains: [] }, prefersBorder: false }, 'openai/ui': { availableDisplayModes: ['fullscreen'], preferredDisplayMode: 'fullscreen' } };
 export const PANEL_META = { 'openai/widgetSessionId': 'tapilot-screen' };
 export const isLocked = error => /^(Unlock the phone first|Phone is locked\. Unlock it on the device\.)$/.test(error.message);
@@ -25,14 +25,8 @@ export class Preview {
     this.revision++; this.invalidate();
     if (!['manual', 'device_locked'].includes(this.reason)) this.reason = null;
   }
-  async resume(phone) {
-    const revision = this.revision;
-    // This probe cannot invalidate the model's last actionable frame.
-    await phone.open();
-    await phone.request('device.preview', phone.features?.jpegPreview ? {format:'jpeg'} : {});
-    if (revision !== this.revision) return result({ state: this.reason ?? 'disconnected' });
-    this.reason = null;
-    return result({ state: 'live' });
+  async resume(phone, viewerId = 'default') {
+    return this.#capture(phone, viewerId, true);
   }
   async control(phone, args) {
     const frame = this.recentFrames.find(frame => frame.id === args.frame_id && frame.viewerId === (args.viewer_id ?? 'default'));
@@ -49,9 +43,12 @@ export class Preview {
     return result({...next.structuredContent, action_completed:true, timing:{action_ms:Math.round(actionMs),refresh_ms:Math.round(performance.now()-start-actionMs)}});
   }
   async frame(phone, viewerId = 'default') {
+    return this.#capture(phone, viewerId, false);
+  }
+  async #capture(phone, viewerId, resuming) {
     // A screen lock is temporary: keep probing without replaying any action.
     // Explicit privacy pauses and disconnects still require user resumption.
-    if (this.reason && this.reason !== 'device_locked') return result({ state: this.reason });
+    if (!resuming && this.reason && this.reason !== 'device_locked') return result({ state: this.reason });
     const revision = this.revision;
     try {
       await phone.open();
@@ -59,7 +56,7 @@ export class Preview {
       if (phone.config && ['en', 'zh'].includes(frame.language)) phone.config.language = frame.language;
       if (revision !== this.revision) return result({ state: this.reason ?? 'disconnected' });
       const size = imageSize(frame.dataUrl);
-      if (this.reason === 'device_locked') this.reason = null;
+      if (resuming || this.reason === 'device_locked') this.reason = null;
       this.lastFrame = { id: randomUUID(), viewerId, receivedAt: performance.now(), ...size };
       // Keep two recent frames per window: other viewers must not evict the
       // image a user is clicking. Mutations still consume every viewer's frames.
@@ -69,6 +66,7 @@ export class Preview {
       return result({ state: 'live', ...frame, frame_id: this.lastFrame.id, ...size });
     } catch (error) {
       if (revision !== this.revision) return result({ state: this.reason ?? 'disconnected' });
+      if (resuming) { this.invalidate(); throw error; }
       if (isLocked(error)) this.pause('device_locked');
       else if (this.reason === 'device_locked') this.reason = null;
       this.invalidate();

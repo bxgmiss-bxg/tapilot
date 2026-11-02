@@ -23,6 +23,30 @@ The default `steps` mode lets the host agent inspect screenshots and decide each
 action; Midscene records the execution report. Optional `ai` mode retains separate
 OpenAI authorization. Installing this skill does not require that authorization.
 
+## Network changes (0.6.12)
+
+A changed computer LAN address invalidates the old phone connection. The next
+observation reconnects, tries all discovered endpoints with the saved certificate
+identity, and updates the remembered address only after authentication succeeds.
+Pairing credentials are retained; phone actions are never replayed.
+
+Discovery requires reachable multicast or the bounded local fallback search.
+The fallback searches at most a /24 slice per physical interface, not an entire
+corporate network. If discovery is blocked or the phone lies outside those slices,
+choose **Scan to reconnect** directly on the recovery screen and scan with Tapilot
+on the phone, then confirm on the computer. Pairing is keyed by the phone certificate,
+so scanning the same phone updates its existing entry. QR creation/status/cancel
+run separately from the phone queue; a stalled old connection cannot block the QR.
+The UI shows progress, a 12-second retry deadline, and immediate cancellation.
+Advanced users can still use **Paired devices → More → Phone address changed?**
+to enter an IPv4 address (optionally `:port`). This probes
+TLS identity before saving and sends no pairing credential during the probe.
+An isolated company/guest Wi-Fi can block even a correct address.
+
+The preview only says Connected after image loading succeeds. Metadata without
+an image, image decoding errors, and slow preview requests cannot leave a blank
+screen labelled Connected.
+
 ## Connection recovery (0.6.8)
 
 Click a saved device to connect or switch immediately. If it is temporarily
@@ -209,10 +233,16 @@ instructing the agent to use its interactive question tool and wait for the repl
 Never enter the phone passcode in chat. Only a fresh observation may be retried
 once after confirmation; a blocked mutation is never automatically replayed.
 
-`tapilot_preview_open` is the only MCP App panel opener. Automatically call it at
-the start of a phone viewing/control task if no panel is open; do not require a
-separate user request to display the screen. Call it once per open panel; `tapilot_screen` only returns a model screenshot. Pause/resume and captures
-update the existing panel without declaring another UI entry point.
+`tapilot_preview_open` is the only MCP App panel opener. At the start of each
+user turn invoking Tapilot or continuing a phone task, call it once with
+`{"recover":true}` before CLI/device checks, even if an earlier panel exists.
+Recovery rotates `openai/widgetSessionId` to request a fresh host view, without
+starting the runtime or changing phone pairing, selection, or privacy state.
+Plain opens reuse the latest session. Within that turn, observations and phone
+actions reuse the panel; captures do not declare another UI entry point.
+If the host still cannot render after one recovery attempt, `tapilot preview --open`
+provides a browser fallback using the same runtime. Host rendering after a crash
+requires host acceptance testing; the opener's success is not visual proof.
 The panel polls a separate `device.preview` endpoint every 250 ms
 plus capture latency, over the existing pinned Wi-Fi connection. It does not
 invalidate the model's last action frame. Requires the Android APK built with
@@ -512,3 +542,15 @@ may still require pairing again.
 The device panel always offers **Pair / pair again**. Use it to open a fresh
 computer QR flow; scan from Tapilot and confirm on the computer. An active
 connection in this panel is released when explicitly starting that flow.
+
+### Remembered network addresses (0.6.13)
+
+A paired phone keeps up to eight recently verified IP/port addresses under its
+existing identity. Reconnection checks remembered addresses before mDNS and LAN
+discovery, verifies the TLS identity, and authenticates using the current
+credential. Returning to a remembered, reachable address does not require pairing
+again. A new address still requires discovery or scan recovery if the network
+blocks discovery. Removing the phone also removes its address history.
+
+While the QR is visible, scan status refreshes every 300 ms without waiting for
+the device list. This is a polling interval, not a guarantee of end-to-end latency.

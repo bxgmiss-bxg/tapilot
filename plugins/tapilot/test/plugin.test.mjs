@@ -454,6 +454,21 @@ test('panel opener returns the shell without initializing runtime or loading pai
   assert.equal(result.isError,undefined);
   assert.equal(result.structuredContent.state,'connecting');
   assert.equal(result._meta['openai/widgetSessionId'],'tapilot-screen');
+  const open = args => client.callTool({name:'tapilot_preview_open',arguments:args});
+  const session = result => result._meta['openai/widgetSessionId'];
+  const recovered = await open({recover:true});
+  assert.equal(recovered.isError, undefined);
+  assert.equal(recovered.structuredContent.state, 'connecting');
+  assert.match(session(recovered), /^tapilot-screen-[0-9a-f-]{36}$/);
+  assert.notEqual(session(recovered), session(result));
+  assert.equal(session(await open({})), session(recovered), 'plain opens reuse the recovered panel');
+  assert.equal(session(await open({recover:false})), session(recovered));
+  assert.equal((await open({recover:'true'})).isError, true);
+  assert.equal(session(await open({})), session(recovered), 'invalid recovery cannot rotate the session');
+  const continued = await open({recover:true});
+  assert.notEqual(session(continued), session(recovered), 'next user turn requests a fresh host view');
+  assert.equal(await readFile(config,'utf8'),'invalid pairing', 'recovery must not read or change phone pairing');
+
   assert.equal(await readFile(state,'utf8'),'not a directory');
   assert.equal((await client.callTool({name:'tapilot_preview_open',arguments:{invalid:true}})).isError,true);
 });
@@ -475,4 +490,89 @@ test('failed explicit connection recovers on preview after accessibility becomes
   assert.equal((await call('tapilot_preview_frame')).structuredContent.state,'live');
   assert.equal(requests.filter(r=>r.method==='authenticate').length,2);
   assert.equal(requests.some(r=>r.method==='device.execute'),false);
+});
+
+test('network changes invalidate stale connected state and reconnect without replaying actions', async t => {
+  const {config,requests} = await fixture(t, (request,reply)=>reply({canCapture:true}));
+  let network='home';
+  const phone=new PhoneConnection(config,{networkState:()=>network});t.after(()=>phone.close());
+  await phone.open();assert.equal(phone.connected,true);
+  network='office';assert.equal(phone.connected,false);
+  await assert.rejects(phone.request('device.execute',{action:'home'}),/disconnected/);
+  await phone.open();assert.equal(phone.connected,true);
+  assert.deepEqual(requests.map(r=>r.method),['authenticate','authenticate']);
+});
+
+test('rediscovery tries later addresses and saves only the verified new endpoint', async t => {
+  const {config,requests}=await fixture(t, (request,reply)=>reply({}));
+  // The old address now belongs to another TLS identity. No token is sent there.
+  const other=await fixture(t,()=>{});
+  const previous={...config,host:'0.0.0.0',port:other.config.port};
+  await saveConfig(previous);
+  const phone=new PhoneConnection(previous,{
+    discover:async()=>[{host:'127.0.0.1',port:other.config.port},{host:config.host,port:config.port}],
+    find:async()=>{throw Error('reachable mDNS endpoint must avoid a scan');},
+  });t.after(()=>phone.close());
+  await phone.open();
+  assert.equal(phone.config.host,config.host);assert.equal(phone.config.port,config.port);
+  assert.equal(other.requests.length,0);assert.deepEqual(requests.map(r=>r.method),['authenticate']);
+  const {loadConfig}=await import('../server/config.mjs');
+  const saved=await loadConfig();assert.equal(saved.host,config.host);assert.equal(saved.token,config.token);
+});
+
+test('pairing QR and cancel remain available while the old phone preview is stalled', async t => {
+  let release, received;
+  const started=new Promise(resolve=>{received=resolve;});
+  const {config}=await fixture(t,(request,reply)=>{
+    if(request.method==='device.preview') {release=reply;received();} else reply({});
+  });
+  await saveConfig(config);
+  const preview=runtimeRequest('/panel',{name:'tapilot_preview_frame',arguments:{}});
+  await started;
+  let deadline;
+  try {
+    const paired=await Promise.race([
+      runtimeRequest('/panel',{name:'tapilot_preview_pair',arguments:{action:'pair'}}),
+      new Promise((_,reject)=>{deadline=setTimeout(()=>reject(Error('QR blocked behind old phone request')),8000);}),
+    ]);
+    assert.equal(paired.isError,undefined);
+    assert.match(paired._meta.pairingQr,/^data:image\/png;base64,/);
+    const cancelled=await runtimeRequest('/panel',{name:'tapilot_preview_pair',arguments:{action:'pair_cancel'}});
+    assert.equal(cancelled.structuredContent.cancelled,true);
+  } finally {
+    clearTimeout(deadline);
+    release({dataUrl:'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',capturedAt:Date.now()});
+    await preview;
+  }
+});
+
+test('returning to a remembered address reconnects without discovery or pairing and rejects a reused IP', async t => {
+  const {config,requests}=await fixture(t,(request,reply)=>reply({}));
+  const other=await fixture(t,()=>{});
+  const previous={...config,host:'0.0.0.0',port:other.config.port,
+    endpoints:[{host:'127.0.0.1',port:other.config.port},{host:config.host,port:config.port}]};
+  await saveConfig(config);
+  await saveConfig({...config,host:previous.host,port:previous.port});
+  const phone=new PhoneConnection(previous,{
+    discover:async()=>{throw Error('remembered address must avoid discovery');},
+    find:async()=>{throw Error('remembered address must avoid scanning');},
+  });t.after(()=>phone.close());
+  await phone.open();
+  assert.equal(other.requests.length,0);
+  assert.deepEqual(requests.map(r=>r.method),['authenticate']);
+  const {loadConfig}=await import('../server/config.mjs');
+  const saved=await loadConfig();
+  assert.equal(saved.host,config.host);
+  assert.ok(saved.endpoints.some(e=>e.host===previous.host && e.port===previous.port));
+});
+
+test('panel resume returns a viewer-scoped frame on its first response', async t => {
+ const png='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
+ const {config,requests}=await fixture(t,(request,reply)=>reply({dataUrl:png,capturedAt:Date.now()}));
+ await saveConfig(config);
+ const result=await runtimeRequest('/panel',{name:'tapilot_preview_resume',arguments:{viewer_id:'resume-viewer'}});
+ assert.equal(result.structuredContent.state,'live');
+ assert.equal(result.structuredContent.dataUrl,png);
+ assert.ok(result.structuredContent.frame_id);
+ assert.equal(requests.filter(r=>r.method==='device.preview').length,1);
 });

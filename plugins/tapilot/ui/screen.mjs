@@ -3,11 +3,11 @@ import { BrowserApp } from './browser-app.mjs';
 import { App, applyDocumentTheme, applyHostStyleVariables } from '@modelcontextprotocol/ext-apps';
 import { imagePoint } from './geometry.mjs';
 import { PreviewActivity } from './preview-activity.mjs';
-const app = globalThis.__TAPILOT_BROWSER__ ? new BrowserApp() : new App({ name: 'Tapilot', version: '0.6.9' }, {});
+const app = globalThis.__TAPILOT_BROWSER__ ? new BrowserApp() : new App({ name: 'Tapilot', version: '0.6.15' }, {});
 const viewerId = crypto.randomUUID();
 const callServerTool = app.callServerTool.bind(app);
 app.callServerTool = request => {
-  const scoped = ['tapilot_preview_frame', 'tapilot_preview_control', 'tapilot_preview'].includes(request.name);
+  const scoped = ['tapilot_preview_frame', 'tapilot_preview_control', 'tapilot_preview', 'tapilot_preview_resume'].includes(request.name);
   return callServerTool(scoped ? {...request, arguments:{...request.arguments, viewer_id:viewerId}} : request);
 };
 const image = document.querySelector('img');
@@ -88,7 +88,7 @@ async function refreshDevices() {
     const devices = result.structuredContent?.devices ?? [];
     const chosen = selectedDeviceId;
     savedDevices = devices;
-    activeDeviceId = devices.find(d => d.selected)?.id ?? activeDeviceId;
+    activeDeviceId = devices.find(d => d.selected)?.id ?? '';
     selectedDeviceId = devices.some(d => d.id === chosen) ? chosen : (devices.find(d => d.selected) ?? devices[0])?.id ?? '';
     renderDevicePicker();
     devicesStatus.textContent = devices.length ? t('点击设备即可连接或切换；一次控制一台。') : t('没有已配对设备');
@@ -112,16 +112,17 @@ document.addEventListener('keydown', event => {
     devicesPanel.querySelector('summary').focus();
   }
 });
-async function deviceAction(command) {
+async function deviceAction(command, extra = {}) {
   if (busy || pairingActive || !selectedDeviceId) return;
   const target = selectedDeviceId;
   if (command === 'connect') { connectingDeviceId = target; failedDeviceId = ''; activeDeviceId = target; renderDevicePicker(); }
-  const succeeded = await action('tapilot_devices', {action:command,device_id:target});
+  const succeeded = await action('tapilot_devices', {action:command,device_id:target,...extra});
   if (command === 'connect') {
     connectingDeviceId = ''; failedDeviceId = succeeded ? '' : target;
     if (succeeded) { devicesPanel.open = false; devicesPanel.querySelector('summary').focus(); }
   }
   await refreshDevices();
+  return succeeded;
 }
 devicesList.addEventListener('keydown', event => {
   if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
@@ -134,6 +135,12 @@ devicesList.addEventListener('keydown', event => {
 });
 document.querySelector('#device-connect').onclick = () => deviceAction('connect');
 document.querySelector('#device-disconnect').onclick = () => deviceAction('disconnect');
+document.querySelector('#device-address-save').onclick = async () => {
+  const value = document.querySelector('#device-address').value.trim();
+  const [host, port, ...rest] = value.split(':');
+  if (rest.length || !host || (port !== undefined && !/^\d+$/.test(port))) { notice.textContent = t('请输入手机当前的 IPv4 地址，可附加端口。'); notice.hidden = false; return; }
+  if (await deviceAction('update_address', {host, ...(port ? {port:Number(port)} : {})})) await deviceAction('connect');
+};
 document.querySelector('#device-forget').onclick = () => { deviceForgetConfirm.hidden = false; };
 deviceForgetConfirm.onclick = () => deviceAction('forget');
 let hostLocale, lastData;
@@ -141,24 +148,25 @@ function applyLocale(data) {
   const locale = hostLocale || app.getHostContext?.()?.locale || data?.language || globalThis.navigator?.language || 'en';
   setLanguage(/^zh(?:[-_]|$)/i.test(locale) ? 'zh' : 'en'); localize();
 }
-let pairingExpiresAt = 0, pairingActive = false, pairingGeneration = 0, pairingExpired = false;
-function clearPairingQr() { pairingExpired = false; pairRefresh.hidden = true; pairingActive = false; ++pairingGeneration; pairCancel.hidden = true; pairingQr.hidden = true; pairingQr.removeAttribute('src'); pairConfirm.hidden = true; pairingStatus.hidden = true; syncPairingControls(); }
+let pairingExpiresAt = 0, pairingActive = false, pairingGeneration = 0, pairingExpired = false, pairingStarting = false;
+function clearPairingQr() { if (pairingStarting) { pairingStarting = false; busy = false; } pairingExpired = false; pairRefresh.hidden = true; pairingActive = false; ++pairingGeneration; pairCancel.hidden = true; pairingQr.hidden = true; pairingQr.removeAttribute('src'); pairConfirm.hidden = true; pairingStatus.hidden = true; syncPairingControls(); }
 const controls = [...document.querySelectorAll('[data-control]')];
 const form = document.querySelector('form');
 const text = document.querySelector('textarea');
-let stopped = false, timer, busy = false, polling = false, epoch = 0, frame, displayedFrame, pointer, state = 'disconnected';
+let stopped = false, timer, busy = false, polling, epoch = 0, frame, displayedFrame, pointer, state = 'disconnected';
 let windowFocused = true;
 const activity = new PreviewActivity({
   graceMs: 0, setTimer: setTimeout, clearTimer: clearTimeout,
   onSuspend: () => { ++epoch; clearTimeout(timer); pointer = undefined; clear(); syncControls();
     app.callServerTool({name:'tapilot_preview',arguments:{action:'suspend'}}).catch(() => {});
   },
-  onResume: () => { ++epoch; pointer = undefined; clear(); syncControls(); schedule(0); },
+  onResume: () => { ++epoch; pointer = undefined; render({state:'connecting'}); schedule(0); },
 });
 function updateActivity() { activity.update(!document.hidden && windowFocused); }
 
 const labels = () => ({
   connecting: t("正在连接手机…"),
+  waiting_frame: t('正在获取手机画面…'),
   accessibility_required: t("手机的设备控制服务未连接"),
   host_reload_required: t("请重载电脑上的 Tapilot 插件"),
   setup_required: t("尚未配对手机"),
@@ -181,26 +189,29 @@ function syncPairingControls() {
 function syncControls() {
   syncPairingControls();
   for (const el of controls) el.disabled = busy || !!pointer || state !== 'live' || !displayedFrame;
-  resume.disabled = pause.disabled = disconnect.disabled = pair.disabled = busy;
+  resume.disabled = pause.disabled = disconnect.disabled = busy || pairingActive;
+  pair.disabled = busy;
   document.querySelector('#device-pair').disabled = busy;
   for (const row of devicesList.children) row.disabled = busy || loadingDevices;
-  pairCancel.disabled = busy;
+  pairCancel.disabled = busy && !pairingStarting;
   const selected = selectedDevice();
   document.querySelector('#device-connect').hidden = !selected || selected.id !== failedDeviceId;
   document.querySelector('#device-connect').textContent = t('重试连接');
   document.querySelector('#device-details').textContent = selected ? `${selected.name}${selected.host ? ' · ' + selected.host : ''}` : '';
   pairRefresh.disabled = busy;
+  document.querySelector('#reconnect-pair').disabled = busy;
   document.querySelector('#device-disconnect').hidden = pairingActive || !selected || selected.state !== 'connected';
-  for (const id of ['#device-connect', '#device-disconnect', '#device-forget', '#device-forget-confirm'])
+  for (const id of ['#device-connect', '#device-disconnect', '#device-forget', '#device-forget-confirm', '#device-address-save', '#device-address'])
     document.querySelector(id).disabled = busy || loadingDevices || !selectedDeviceId;
   image.setAttribute('aria-disabled', String(busy || !!pointer || state !== 'live' || !displayedFrame));
 }
-function clear() { frame = displayedFrame = undefined; image.onload = image.onerror = null; image.removeAttribute('src'); image.hidden = true; }
+function clear() { if (state === 'live') status.textContent = t('正在获取手机画面…'); frame = displayedFrame = undefined; image.onload = image.onerror = null; image.removeAttribute('src'); image.hidden = true; }
 function render(data) {
   lastData = data; applyLocale(data);
   if (stopped || document.hidden || !windowFocused) { clear(); syncControls(); return; }
   if (pairingActive) { syncPairingControls(); return; }
   state = data?.state ?? 'unavailable';
+  if (state === 'live' && !/^data:image\/(png|jpeg);base64,/.test(data?.dataUrl ?? '')) state = 'waiting_frame';
   if (state === 'live' && connectionErrorActive) {
     notice.textContent = ''; notice.hidden = true; connectionErrorActive = false; failedDeviceId = '';
   }
@@ -212,12 +223,13 @@ function render(data) {
   if (state === 'live' || Date.now() >= pairingExpiresAt) clearPairingQr();
   if (state === 'live') { pairingLink.hidden = true; pairingLink.removeAttribute('href'); }
   const active = savedDevices.find(device => device.id === activeDeviceId);
-  status.textContent = (active ? `${active.name} · ` : '') + (labels()[state] ?? labels().unavailable);
+  status.textContent = (active ? `${active.name} · ` : '') + (state === 'live' ? t('正在获取手机画面…') : (labels()[state] ?? labels().unavailable));
   renderDevicePicker();
   document.querySelector('.preview-empty h1').textContent = active?.name ?? t('无线连接你的手机');
   document.querySelector('.preview-empty p').textContent = t('连接后即可在这里查看和操作手机屏幕。');
   resume.hidden = ['connecting', 'live', 'host_reload_required', 'device_locked', 'setup_required', 'pairing_required'].includes(state);
   pair.hidden = !pairingQr.hidden || !['setup_required', 'pairing_required'].includes(state);
+  document.querySelector('#reconnect-pair').hidden = !['unavailable','waiting_frame'].includes(state);
   recovery.hidden = ['live', 'connecting'].includes(state);
   recoveryDetails.hidden = recovery.hidden;
   if (recovery.hidden) recoveryDetails.open = false;
@@ -228,12 +240,14 @@ function render(data) {
     host_reload_required: t("插件已更新或安装文件缺失。重载插件或重新打开客户端后继续，无需重新配对手机。"),
     setup_required: t("在手机 Tapilot 设置中开启无线控制，再点击下方按钮，用手机扫描电脑二维码。无需 USB。"),
     pairing_required: t("在手机上重新扫描电脑二维码，并在电脑窗口确认。完成后点击重新连接。"),
+    waiting_frame: t('尚未收到手机画面，正在检查连接。长时间没有画面时可重试。'),
     unavailable: t("请确认电脑和手机已连接同一局域网 Wi-Fi、手机屏幕已点亮并解锁，且 Tapilot 无线控制已开启。恢复后会自动连接；不会重放之前的操作。"),
     occupied: t("请先在另一控制端结束任务或释放手机，然后重新连接。"),
     device_locked: t("请点亮手机屏幕并解锁，预览会自动恢复，无需刷新连接。"),
     manual: t("画面已隐藏。完成手机上的私密操作后，点击已完成继续。"),
     disconnected: t("手机已释放。点击重新连接可恢复画面。"),
   })[state] ?? t("检查手机连接后重试。");
+  if (state === 'unavailable') recovery.textContent += ' ' + t('换了 Wi-Fi？点击“扫码重新连接”，用手机 Tapilot 扫码，无需填写 IP。公司网络可能限制设备互通。');
   pause.hidden = state !== 'live';
   const resumeLabel = state === 'unavailable' ? t('立即重试') : state === 'device_locked' || state === 'manual' ? t("已完成继续") : t("重新连接");
   document.querySelector('#resume-label').textContent = resumeLabel;
@@ -243,11 +257,13 @@ function render(data) {
     frame = snapshot; displayedFrame = undefined;
     image.onload = () => {
       if (frame !== snapshot || stopped || document.hidden || !windowFocused || state !== 'live') return;
-      displayedFrame = snapshot; syncControls();
+      displayedFrame = snapshot;
+      status.textContent = (active ? `${active.name} · ` : '') + labels().live;
+      syncControls();
     };
     image.onerror = () => {
       if (frame !== snapshot) return;
-      clear(); syncControls(); schedule(0);
+      render({state:'unavailable'}); schedule(4000);
     };
     image.src = data.dataUrl; image.hidden = false;
     document.querySelector('time').textContent = new Date(data.capturedAt).toLocaleTimeString();
@@ -255,21 +271,25 @@ function render(data) {
   syncControls();
 }
 async function poll() {
-  if (stopped || !activity.canPoll || busy || pointer || polling) return;
-  polling = true; const generation = epoch;
+  if (stopped || !activity.canPoll || busy || pointer || polling?.epoch === epoch) return;
+  const request = {epoch}; polling = request; const generation = epoch;
+  const slowPreview = setTimeout(() => {
+    if (generation === epoch && !busy && !pointer && activity.canPoll && !document.hidden) render({state:'waiting_frame'});
+  }, 5000);
   try {
-    if (Date.now() - lastDeviceRefresh > 3000 && deviceForgetConfirm.hidden) await refreshDevices();
-    if (pairingActive) { await refreshPairing(); if (pairingActive) return; }
+    if (!pairingActive && Date.now() - lastDeviceRefresh > 3000 && deviceForgetConfirm.hidden) await refreshDevices();
+    if (generation !== epoch || stopped || busy) return;
+    if (pairingActive) { await refreshPairing(); if (pairingActive || generation !== epoch) return; }
     const r = await app.callServerTool({ name: 'tapilot_preview_frame', arguments: {} }); if (generation === epoch && !busy && !pointer) render(r.structuredContent); }
   catch { if (generation === epoch) render({ state: 'unavailable' }); }
-  finally { polling = false; if (!busy && !pointer) schedule(); }
+  finally { clearTimeout(slowPreview); if (polling === request) { polling = undefined; if (!busy && !pointer) schedule(); } }
 }
-function schedule(delay = state === 'live' ? 250 : 4000) {
+function schedule(delay = pairingActive && !pairingExpired ? 300 : state === 'live' ? 250 : 4000) {
   clearTimeout(timer);
   if (!stopped && activity.canPoll && !pointer) timer = setTimeout(poll, delay);
 }
 async function action(name, args = {}) {
-  if (busy) return false;
+  if (busy || pairingActive) return false;
   const generation = ++epoch; clearTimeout(timer); busy = true; frame = displayedFrame = undefined;
   if (name !== 'tapilot_preview_control') { pointer = undefined; clear(); }
   syncControls();
@@ -281,7 +301,7 @@ async function action(name, args = {}) {
     if (generation !== epoch || stopped) return completed;
     if (name === 'tapilot_devices' && r.structuredContent?.devices) {
       savedDevices = r.structuredContent.devices;
-      activeDeviceId = savedDevices.find(d => d.selected)?.id ?? activeDeviceId;
+      activeDeviceId = savedDevices.find(d => d.selected)?.id ?? '';
     }
     if (r.isError) {
       render(r.structuredContent ?? { state: 'unavailable' });
@@ -345,44 +365,72 @@ form.onsubmit = async event => {
 pair.onclick = async () => {
   if (busy) return;
   ++epoch; clearTimeout(timer); clear();
-  pairingActive = true; pairingExpired = false; pairRefresh.hidden = true; devicesPanel.open = true;
+  const generation = ++pairingGeneration;
+  pairingActive = true; pairingStarting = true; pairingExpired = false; pairRefresh.hidden = true; devicesPanel.open = false;
+  pairingQr.hidden = true; pairConfirm.hidden = true; pair.hidden = true;
+  document.querySelector('#reconnect-pair').hidden = true;
+  pairingStatus.hidden = false; pairingStatus.textContent = t('正在生成二维码…');
   recoveryDetails.hidden = true; resume.hidden = true; status.textContent = t('配对新手机');
   busy = true; syncControls(); notice.hidden = true; pairingLink.hidden = true; pairingLink.removeAttribute('href');
   try {
-    const result = await app.callServerTool({ name: 'tapilot_preview_pair', arguments: { action: 'pair' } });
+    let deadline;
+    const result = await Promise.race([
+      app.callServerTool({ name: 'tapilot_preview_pair', arguments: { action: 'pair' } }),
+      new Promise((_, reject) => { deadline = setTimeout(() => reject(Error('pairing timeout')), 12000); }),
+    ]).finally(() => clearTimeout(deadline));
+    if (generation !== pairingGeneration || stopped) return;
     if (result.isError || !result.structuredContent?.url) throw new Error('pairing unavailable');
     const url = new URL(result.structuredContent.url);
     if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(url.hostname)) throw new Error('invalid pairing window');
     pairingLink.href = url.href; pairingLink.hidden = true;
     pairingExpiresAt = result.structuredContent.expires_at ?? 0;
-    clearPairingQr();
+    pairingQr.hidden = true; pairingQr.removeAttribute('src'); pairConfirm.hidden = true; pairRefresh.hidden = true;
     if (/^data:image\/png;base64,/.test(result._meta?.pairingQr ?? '') && pairingExpiresAt > Date.now()) {
+      pairingQr.onerror = () => {
+        if (generation !== pairingGeneration || !pairingActive) return;
+        pairingQr.hidden = true; pairRefresh.hidden = false; pairingLink.hidden = false;
+        pairingStatus.textContent = t('二维码无法显示，请刷新或打开配对窗口。');
+      };
       pairingQr.src = result._meta.pairingQr; pairingQr.hidden = false; pair.hidden = true;
       pairingStatus.textContent = t("等待手机扫码…"); pairingStatus.hidden = false;
     }
     pairingActive = true; pairCancel.hidden = false;
-    if (pairingQr.hidden) pairingLink.hidden = false;
+    if (pairingQr.hidden) { pairingLink.hidden = false; pairingStatus.textContent = t('请打开配对窗口，用手机扫描二维码。'); }
     pairingLink.onclick = async event => {
       event.preventDefault();
       try { const opened = await app.openLink({ url: url.href }); if (opened?.isError) throw new Error('open failed'); }
       catch { notice.textContent = t("无法打开配对窗口，请让聊天助手提供配对链接。"); notice.hidden = false; }
     };
     status.textContent = t('用手机扫码，再在电脑确认连接');
-  } catch { clearPairingQr(); notice.textContent = t("无法创建配对窗口，请检查电脑 Wi-Fi 后重试。"); notice.hidden = false; }
-  finally { busy = false; syncControls(); schedule(0); }
+  } catch {
+    if (generation !== pairingGeneration || stopped) return;
+    pairingExpired = true; pairRefresh.hidden = false; pairingStatus.hidden = false;
+    pairingStatus.textContent = t('二维码生成失败，请重试。');
+  } finally {
+    if (generation === pairingGeneration) { pairingStarting = false; busy = false; syncControls(); schedule(0); }
+  }
 };
 document.querySelector('#device-pair').onclick = () => pair.onclick();
+document.querySelector('#reconnect-pair').onclick = () => pair.onclick();
 for (const id of ['#device-pair', '#pair-cancel', '#device-disconnect']) {
   document.querySelector(id).addEventListener('click', event => event.stopPropagation());
 }
 async function cancelPairing() {
+  if (pairingStarting) {
+    clearPairingQr(); pairingStarting = false; busy = false; pairingExpiresAt = 0;
+    pairingLink.hidden = true; pairingLink.removeAttribute('href');
+    app.callServerTool({name:'tapilot_preview_pair',arguments:{action:'pair_cancel'}}).catch(() => {});
+    render({state:'unavailable'}); schedule(0); return true;
+  }
   if (busy) return false;
+  pairingStarting = false;
   busy = true; ++epoch; ++pairingGeneration; clearTimeout(timer); syncControls();
   try {
     const result = await app.callServerTool({name:'tapilot_preview_pair', arguments:{action:'pair_cancel'}});
     if (result.isError) throw Error('cancel failed');
     clearPairingQr(); pairingExpiresAt = 0; pairingLink.hidden = true; pairingLink.removeAttribute('href');
     notice.hidden = true; notice.textContent = '';
+    render({state:'unavailable'});
     return true;
   } catch { notice.textContent = t('无法取消配对，请重试。'); notice.hidden = false; return false; }
   finally { busy = false; syncControls(); schedule(0); }
@@ -397,24 +445,36 @@ async function refreshPairing() {
   if (pairingExpired) return;
   if (Date.now() >= pairingExpiresAt) { expirePairing(); return; }
   const generation = pairingGeneration;
-  const result = await app.callServerTool({name:'tapilot_preview_pair', arguments:{action:'pair_status'}});
+  let result, deadline;
+  try {
+    result = await Promise.race([
+      app.callServerTool({name:'tapilot_preview_pair', arguments:{action:'pair_status'}}),
+      new Promise((_, reject) => { deadline = setTimeout(() => reject(Error('scan status timeout')), 5000); }),
+    ]);
+  }
+  catch {
+    if (generation !== pairingGeneration || !pairingActive) return;
+    expirePairing(); pairingStatus.textContent = t('无法读取扫码状态，请重试。'); return;
+  } finally { clearTimeout(deadline); }
   if (generation !== pairingGeneration || !pairingActive) return;
   if (result.isError) { expirePairing(); notice.textContent = t("配对已过期或无法继续，请重新生成二维码。"); notice.hidden = false; return; }
   const data = result.structuredContent;
-  if (data?.paired) { clearPairingQr(); pairingExpiresAt = 0; notice.hidden = true; status.textContent = t('配对成功，正在连接…'); devicesPanel.open = false; await refreshDevices(); return; }
+  if (data?.paired) { clearPairingQr(); pairingExpiresAt = 0; notice.hidden = true; status.textContent = t('配对成功，正在连接…'); devicesPanel.open = false; selectedDeviceId = ''; await refreshDevices(); return; }
   if (data?.error) { notice.textContent = t(data.error); notice.hidden = false; }
   pairConfirm.hidden = !data?.pending; pairConfirm.disabled = busy || !!data?.pairing;
+  if (!data?.pending && pairingQr.hidden && !pairingLink.hidden) return;
   pairingStatus.textContent = data?.pending ? `${data.pending.host} · ${t('手机已扫码，请确认配对')}` : t("等待手机扫码…");
 }
 pairConfirm.onclick = async () => {
   if (busy) return;
-  busy = true; pairConfirm.disabled = true; syncControls(); notice.hidden = true;
+  busy = true; ++epoch; clearTimeout(timer); ++pairingGeneration; pairConfirm.disabled = true; syncControls(); notice.hidden = true;
+  pairingStatus.textContent = t('正在确认连接…');
   try {
     const result = await app.callServerTool({name:'tapilot_preview_pair', arguments:{action:'pair_confirm'}});
     if (result.isError) throw Error(result.content?.find(item => item.type === 'text')?.text || t('配对未完成，结果可能不确定。请重新扫码后确认连接。'));
-    clearPairingQr(); pairingExpiresAt = 0; status.textContent = t('配对成功，正在连接…'); devicesPanel.open = false; await refreshDevices();
-  } catch (error) { notice.textContent = t(error.message); notice.hidden = false; }
-  finally { busy = false; syncControls(); schedule(0); }
+    clearPairingQr(); pairingExpiresAt = 0; status.textContent = t('配对成功，正在连接…'); devicesPanel.open = false; selectedDeviceId = ''; await refreshDevices();
+  } catch (error) { notice.textContent = connectionErrorMessage(error.message); notice.hidden = false; pairingStatus.textContent = t('手机已扫码，请确认配对'); }
+  finally { busy = false; pairConfirm.disabled = false; syncControls(); schedule(0); }
 };
 function applyTheme(context) {
   if (context?.theme) applyDocumentTheme(context.theme);
@@ -440,7 +500,7 @@ document.addEventListener('visibilitychange', () => {
 window.addEventListener('blur', () => {});
 window.addEventListener('focus', () => { windowFocused = true; updateActivity(); });
 window.addEventListener('pagehide', () => { stopped = true; ++epoch; clearTimeout(timer); clear(); clearPairingQr(); text.value = ''; });
-window.addEventListener('pageshow', () => { stopped = false; windowFocused = true; updateActivity(); schedule(0); });
+window.addEventListener('pageshow', () => { stopped = false; windowFocused = true; render({state:'connecting'}); updateActivity(); schedule(0); });
 localize();
 syncControls();
 try {

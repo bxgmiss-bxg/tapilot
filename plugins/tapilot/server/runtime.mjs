@@ -1,3 +1,4 @@
+import { updatePhoneEndpoint } from './endpoint.mjs';
 import { setLanguage } from "../ui/i18n.mjs";
 import { loadConfig, loadDevices, selectDevice } from "./config.mjs";
 import { PhoneConnection } from "./transport.mjs";
@@ -17,6 +18,7 @@ export function createRuntime() {
   const preview = new Preview();
   const midscene = new MidsceneController();
   let queue = Promise.resolve();
+  let pairingQueue = Promise.resolve();
   return {
     close() {
       midscene.cancel();
@@ -25,6 +27,13 @@ export function createRuntime() {
     },
     async call(request) {
       const { name, arguments: args = {} } = request.params;
+      // QR setup/status never wait for an unreachable phone or an active task.
+      // Confirmation stays on the device queue because it replaces credentials.
+      if (name === "tapilot_midscene" && ['pair','pair_status','pair_cancel'].includes(args.action)) {
+        const pairing = pairingQueue.then(() => midscene.configure(args));
+        pairingQueue = pairing.catch(() => {});
+        return pairing.catch(error => ({isError:true,content:[{type:'text',text:error.message}]}));
+      }
       if (name === "tapilot_midscene" && args.action === "status")
         return midscene
           .configure(args)
@@ -98,7 +107,7 @@ export function createRuntime() {
             return await midscene.configure(args);
           const explicitResume = name === 'tapilot_preview_resume' || (name === 'tapilot_preview' && args.action === 'resume');
           if (explicitResume && Object.keys(args).some(key =>
-              !(name === 'tapilot_preview' ? ['action', 'viewer_id'] : []).includes(key)))
+              !(name === 'tapilot_preview' ? ['action', 'viewer_id'] : ['viewer_id']).includes(key)))
             throw new Error('Invalid preview arguments');
           const registry = await loadDevices();
           let selected = registry.devices.find(d => d.fingerprint === registry.activeDeviceId);
@@ -112,13 +121,15 @@ export function createRuntime() {
           }
           if (name === 'tapilot_devices' || name === 'tapilot_disconnect') {
             const action = name === 'tapilot_disconnect' ? 'disconnect' : args.action;
-            if (!['list','connect','disconnect','forget'].includes(action) ||
+            if (!['list','connect','disconnect','forget','update_address'].includes(action) ||
                 (name === 'tapilot_disconnect' && Object.keys(args).length > 0) ||
-                Object.keys(args).some(key => !['action','device_id'].includes(key)) ||
+                Object.keys(args).some(key => !(action === 'update_address' ? ['action','device_id','host','port'] : ['action','device_id']).includes(key)) ||
                 (args.device_id !== undefined && !/^[a-f0-9]{64}$/.test(args.device_id))) throw Error('Invalid device request');
             const before = await loadDevices();
             const id = args.device_id ?? before.activeDeviceId;
-            if (action !== 'list') {
+            if (action === 'update_address') {
+              await updatePhoneEndpoint(id, args.host, args.port);
+            } else if (action !== 'list') {
               await selectDevice(action, id);
               if (action === 'connect' || id === before.activeDeviceId) {
                 preview.pause('disconnected');
@@ -208,7 +219,7 @@ export function createRuntime() {
               return await preview.control(phone, args);
             const hasAction = name === "tapilot_preview";
             if (
-              Object.keys(args).some((k) => !(hasAction ? ["action", "viewer_id"] : name === "tapilot_preview_frame" ? ["viewer_id"] : []).includes(k)) ||
+              Object.keys(args).some((k) => !(hasAction ? ["action", "viewer_id"] : ["tapilot_preview_frame", "tapilot_preview_resume"].includes(name) ? ["viewer_id"] : []).includes(k)) ||
               (hasAction && !["open", "pause", "resume"].includes(args.action))
             )
               throw new Error("Invalid preview arguments");
@@ -218,7 +229,7 @@ export function createRuntime() {
               name === "tapilot_preview_resume" ||
               (hasAction && args.action === "resume")
             )
-              return { ...(await preview.resume(phone)), _meta: PANEL_META };
+              return { ...(await preview.resume(phone, args.viewer_id)), _meta: PANEL_META };
             if (!hasAction) throw new Error("Unknown preview tool");
             if (args.action === "pause") preview.pause("manual");
             else preview.observe();

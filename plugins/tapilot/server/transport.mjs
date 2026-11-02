@@ -1,6 +1,8 @@
 import tls from 'node:tls';
 import { createHash, randomUUID, timingSafeEqual } from 'node:crypto';
 import { networkInterfaces } from 'node:os';
+import { discoverPhones } from './discovery.mjs';
+import { findPairedPhone, matchesPhone } from './lan-discovery.mjs';
 
 // A VPN may route the phone's LAN range into its tunnel. Bind the source to a
 // physical interface when unambiguous, preserving the pinned TLS identity.
@@ -15,6 +17,13 @@ export function localAddressForPhone(host, interfaces = networkInterfaces()) {
   return candidates.length === 1 ? candidates[0].address : undefined;
 }
 
+export function physicalNetworkKey(interfaces = networkInterfaces()) {
+  return JSON.stringify(Object.entries(interfaces)
+    .filter(([name]) => /^(en\d+|eth\d+|wlan\d+|wlp\w+)$/.test(name))
+    .flatMap(([name, entries]) => (entries ?? []).filter(a => a.family === 'IPv4' && !a.internal)
+      .map(a => `${name}:${a.address}/${a.netmask}`)).sort());
+}
+
 const MAX_RESPONSE = 32 * 1024 * 1024;
 export class PhoneConnection {
   #socket;
@@ -23,9 +32,16 @@ export class PhoneConnection {
   #opening;
   #authenticated = false;
   #abortConnect;
-  constructor(config) { this.config = config; }
-  get connected() { return this.#authenticated && !!this.#socket && !this.#socket.destroyed; }
+  #networkKey;
+  constructor(config, {networkState, discover = discoverPhones, find = findPairedPhone} = {}) {
+    this.config = config;
+    this.networkState = networkState ?? (() => this.config.host.startsWith('127.') ? 'loopback' : physicalNetworkKey());
+    this.discover = discover; this.find = find;
+  }
+  #networkChanged() { return this.#networkKey !== undefined && this.networkState() !== this.#networkKey; }
+  get connected() { return this.#authenticated && !!this.#socket && !this.#socket.destroyed && !this.#networkChanged(); }
   async open(pair = false, rediscover = true) {
+    if (this.#networkChanged()) this.close(new Error('Network changed. Reconnect to the phone at its current address.'));
     if (this.#opening) return this.#opening;
     if (this.connected) return;
     const opening = this.#open(pair, rediscover);
@@ -34,6 +50,7 @@ export class PhoneConnection {
     finally { if (this.#opening === opening) this.#opening = undefined; }
   }
   async #open(pair, rediscover) {
+    this.#networkKey = this.networkState();
     const socket = tls.connect({ host: this.config.host, port: this.config.port, localAddress: localAddressForPhone(this.config.host), minVersion: 'TLSv1.2', maxVersion: 'TLSv1.2', rejectUnauthorized: false });
     socket.setKeepAlive(true, 10000);
     socket.setNoDelay(true);
@@ -73,22 +90,36 @@ export class PhoneConnection {
       if (!authenticatedTransport && /^(Phone connection timed out|Unable to connect to phone|Phone connection failed\.)/.test(error.message))
         error.code = 'phone_unreachable';
       this.close(error);
-      if (!pair && rediscover && !this.config.host.startsWith('127.') && /Unable to connect|connection timed out|connection failed/i.test(error.message)) {
-        const { discoverPhones } = await import('./discovery.mjs');
-        let candidates = await discoverPhones({fingerprint:this.config.fingerprint,timeoutMs:2000});
-        if (!candidates.some(p => p.host !== this.config.host || p.port !== this.config.port)) {
-          const { findPairedPhone } = await import('./lan-discovery.mjs');
-          candidates = await findPairedPhone({fingerprint:this.config.fingerprint,port:this.config.port});
-        }
-        const target = candidates.find(p => p.host !== this.config.host || p.port !== this.config.port);
-        if (target) {
-          const previous = this.config;
-          this.config = {...previous,host:target.host,port:target.port};
-          try {
-            const result = await this.#open(false,false);
-            const {saveConfig} = await import('./config.mjs'); await saveConfig(this.config, undefined, {activate:false});
-            return result;
-          } catch (failure) { this.close(failure); this.config = previous; throw failure; }
+      if (!pair && rediscover && !this.config.host.startsWith('127.') && /Unable to connect|connection timed out|connection failed|certificate changed/i.test(error.message)) {
+        const previous = this.config;
+        const seen = new Set([`${previous.host}:${previous.port}`]);
+        // Try every advertised endpoint: one stale mDNS answer must not hide a
+        // reachable address on another interface. Fall back only after those fail.
+        for (const discover of [
+          async () => (await Promise.all((previous.endpoints ?? []).slice(0, 8).map(async target =>
+            !seen.has(`${target.host}:${target.port}`) && await matchesPhone(
+              {host:target.host,localAddress:localAddressForPhone(target.host)},previous.fingerprint,target.port,1000,
+            ) ? target : null))).filter(Boolean),
+          () => this.discover({fingerprint:previous.fingerprint,timeoutMs:2000}),
+          () => this.find({fingerprint:previous.fingerprint,port:previous.port}),
+        ]) {
+          const candidates = await discover();
+          for (const target of candidates) {
+            const key = `${target.host}:${target.port}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            this.config = {...previous,host:target.host,port:target.port};
+            try {
+              const result = await this.#open(false,false);
+              const {saveConfig} = await import('./config.mjs'); await saveConfig(this.config, undefined, {activate:false});
+              return result;
+            } catch (failure) {
+              this.close(failure); this.config = previous;
+              // A verified phone rejecting authentication/ownership is not an
+              // address discovery failure; do not obscure it by scanning again.
+              if (failure.code !== 'phone_unreachable' && !/certificate changed/i.test(failure.message)) throw failure;
+            }
+          }
         }
       }
       throw error;

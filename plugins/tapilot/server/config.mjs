@@ -7,6 +7,16 @@ import lockfile from 'proper-lockfile';
 import { randomUUID } from 'node:crypto';
 
 export const configPath = () => process.env.TAPILOT_CONFIG || join(homedir(), '.config', 'tapilot', 'wireless.json');
+function endpoints(values = []) {
+  if (!Array.isArray(values)) return [];
+  const seen = new Set();
+  return values.filter(v => {
+    if (!v || typeof v.host !== 'string' || isIP(v.host) !== 4 || !Number.isInteger(v.port) || v.port < 1024 || v.port > 65535) return false;
+    const key = v.host + ':' + v.port;
+    if (seen.has(key)) return false;
+    seen.add(key); return true;
+  }).slice(0, 8).map(({host, port}) => ({host, port}));
+}
 export function validateConfig(value) {
   if (!value || value.version !== 1 || isIP(value.host) !== 4 || !Number.isInteger(value.port) || value.port < 1024 || value.port > 65535
       || !/^[a-f0-9]{64}$/.test(value.fingerprint) || !/^[A-Za-z0-9_-]{43}$/.test(value.token)) {
@@ -14,6 +24,7 @@ export function validateConfig(value) {
   }
   if (value.language !== undefined && !['en', 'zh'].includes(value.language)) throw new Error('Invalid pairing language');
   return { version: 1, host: value.host, port: value.port, fingerprint: value.fingerprint, token: value.token,
+    ...(value.endpoints ? {endpoints:endpoints(value.endpoints)} : {}),
     ...(value.language ? {language:value.language} : {}),
     ...(typeof value.name === 'string' && value.name.trim() ? {name:value.name.trim().slice(0,80)} : {}) };
 }
@@ -63,7 +74,9 @@ export async function saveConfig(value, path = configPath(), {activate = true} =
     const index = registry.devices.findIndex(d => d.fingerprint === config.fingerprint);
     // Endpoint refresh must not resurrect a pairing the user removed in another host.
     if (!activate && (index < 0 || registry.devices[index].token !== config.token)) return;
-    const device = {...registry.devices[index], ...config, autoConnect:activate || registry.devices[index]?.autoConnect === true};
+    const previous = registry.devices[index];
+    const history = endpoints([config, ...(previous ? [previous, ...(previous.endpoints ?? [])] : [])]);
+    const device = {...previous, ...config, endpoints:history, autoConnect:activate || registry.devices[index]?.autoConnect === true};
     if (index < 0) registry.devices.push(device); else registry.devices[index] = device;
     if (activate) registry.activeDeviceId = config.fingerprint;
   });

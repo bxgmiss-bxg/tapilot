@@ -224,3 +224,21 @@ test('phone-side local tasks and device leases are classified as occupied', () =
     assert.equal(connectionState(Error(message)),'occupied');
   }
 });
+
+test('resume returns its first captured frame to the requesting viewer without a second capture', async () => {
+ const phone=device(),preview=new Preview();preview.pause('manual');
+ const response=await preview.resume(phone,'resuming-viewer');
+ assert.equal(response.structuredContent.dataUrl,png);
+ assert.ok(response.structuredContent.frame_id);
+ assert.equal(preview.recentFrames[0].viewerId,'resuming-viewer');
+ assert.equal(preview.reason,null);
+ assert.equal(phone.calls.filter(c=>c.method==='device.preview').length,1);
+});
+
+test('failed resume retains privacy pause and never exposes an actionable frame', async () => {
+ const preview=new Preview();preview.pause('manual');
+ const phone={open:async()=>{},request:async()=>{throw Error('Phone connection timed out');}};
+ await assert.rejects(preview.resume(phone,'viewer'),/timed out/);
+ assert.equal(preview.reason,'manual');
+ assert.equal(preview.lastFrame,undefined);
+});
