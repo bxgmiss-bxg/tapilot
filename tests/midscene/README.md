@@ -169,8 +169,10 @@ before starting another test.
 ## Verification and reports
 
 `pnpm check:e2e` runs TypeScript, native Midscene node-schema normalization and
-case checks, plus model-free fixture guard, recovery and native-task wait tests. It requires no model, Android SDK or phone. Ordinary CI runs this
-check; it does not run device/model-backed cases. Root `pnpm check:security` also
+case checks, plus model-free fixture guard, recovery and native-task wait tests. It requires no model, Android SDK or phone. The independent `Midscene E2E checks` CI job runs this check on pull requests,
+main pushes and manual Checks runs, without waiting for Android SDK setup or
+APK builds. It does not run device/model-backed cases. The full local
+`pnpm check` also retains this check. Root `pnpm check:security` also
 audits this package. The lockfile pins compatible fixes for affected transitive
 Android/Appium dependencies; keep overrides until upstream ranges include the fixes.
 
