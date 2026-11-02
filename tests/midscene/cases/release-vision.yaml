@@ -1,0 +1,23 @@
+cases:
+  - name: RELEASE-01 Android screenshot processing and read-only device task
+    tags: [live, release-vision]
+    steps:
+      - app.open: {}
+      - aiAct: >-
+          Return to Tapilot main chat and create a new conversation using the top-right
+          conversation menu. Preserve model and speech settings. Submit this exact text:
+          "打开系统设置，读取 Android 版本号。只读取，不修改任何设置。"
+          Do not perform the Settings lookup yourself. Stop interacting after submission.
+      - task.waitForIdle: {}
+      - aiAct: >-
+          Return to Tapilot without starting or retrying any task. Inspect the newest task
+          result and its execution report. Open the relevant recorded screenshot or Replay
+          and independently compare the reported Android version with the actual Android
+          version displayed in the Settings screenshot. Require a successful completion
+          and matching screenshot evidence. A claim without a recorded screenshot is a
+          failure. Do not modify settings or credentials. Return to the main chat showing
+          the latest result when finished.
+      - aiAssert: >-
+          The newest task is completed successfully and reports the Android version it
+          read from this phone. It is not failed, stopped or waiting for user input, and
+          there is no image-processing or runtime initialization error.
