@@ -62,6 +62,44 @@ the selected local file take precedence over inherited model variables; set
 `MIDSCENE_MODEL_PROTOCOL` explicitly for the provider (`openai-chat` for Seed).
 `.env`, reports and dependencies are gitignored.
 
+## GitHub Actions device runs
+
+The `Checks` workflow exposes a manual `device_e2e` boolean. Its `Midscene Android
+E2E` job uses [`web-infra-dev/midscene-action`](https://github.com/web-infra-dev/midscene-action)
+at the same pinned revision used by [Midscene's own AI workflow](https://github.com/web-infra-dev/midscene/blob/main/.github/workflows/ai.yml).
+The Action runs the actual smoke suite, uploads `midscene_run/` and `.midscene/`,
+and includes native results in the Actions Summary. A failed command remains a
+failed job. Reports are retained for seven days; Cloudflare publishing is disabled.
+The ordinary `Midscene E2E checks` job remains model-free.
+
+Provision a dedicated Linux runner with labels `self-hosted`, `Linux`,
+`tapilot-android`, and an attached, unlocked ARM64 Android phone. Keep the phone
+awake while charging. Repository settings must contain:
+
+- Secret: `MIDSCENE_MODEL_API_KEY`.
+- Variables: `MIDSCENE_MODEL_BASE_URL`, `MIDSCENE_MODEL_NAME`,
+  `MIDSCENE_MODEL_FAMILY`, `TAPILOT_E2E_DEVICE_ID`, and
+  `TAPILOT_E2E_DEDICATED_DEVICE=1`.
+- Optional variables: `MIDSCENE_MODEL_PROTOCOL` (default `openai-chat`),
+  `TAPILOT_E2E_DISPLAY_ID` (default `0`), and `TAPILOT_E2E_SCREEN_INFO`
+  (default `physical`).
+
+A hosted preflight reports missing configuration before queuing the dedicated
+runner. Device jobs share concurrency with the native performance workflow.
+Only manually selected, trusted revisions run on the phone; pull requests run
+model-free checks only. Other processes must not use the dedicated phone.
+
+```sh
+gh workflow run check.yml --ref main -f device_e2e=true
+```
+
+This builds the selected source, installs `lifeos.md.tapilot.e2everify` without
+clearing its data, records the commit and APK SHA-256 alongside the report, verifies
+the host model, and runs only `cases/smoke.yaml`. It does not install over the
+personal app or provision phone model credentials. Live/resilience cases remain
+outside this workflow. The bundled native runtime requires ARM64; the upstream
+x86_64 Android emulator job cannot replace this device for native task coverage.
+
 ## Cases and selection
 
 | Case | Goal | Mode |
