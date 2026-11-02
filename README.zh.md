@@ -138,6 +138,12 @@ Tapilot 日常自动化不需要 ADB。
 提供电脑插件协议。更多上游项目、许可证标识和发布前仍需完成的分发工作见
 [CREDITS.md](CREDITS.md)。
 
+## 可选后台屏实验
+
+Debug 版本提供“设置 → 开发实验 → 后台屏技术验证”，默认关闭。
+实验检查独立渲染、截图、定向手势和测试应用启动，尚不支持后台执行 Agent 任务。
+具体操作和限制见[实验说明](docs/experiments/background-display.md)。Beta 和 Release 不包含实验台。
+
 ## 许可证
 
 采用 [MIT 许可证](LICENSE)。第三方组件继续遵循各自许可证，详见

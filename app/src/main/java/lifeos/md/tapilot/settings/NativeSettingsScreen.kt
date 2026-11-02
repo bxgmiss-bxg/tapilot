@@ -157,6 +157,14 @@ fun NativeSettingsScreen(coordinator: NativeConversationCoordinator, activity: A
                     SettingRow(label("清空聊天记录", "Clear chat history"), "") { clearHistory = true }
                     SettingRow(label("检查执行引擎", "Check execution engine"), "") { coordinator.settingsCall("runtime.doctor") }
                 }
+                if (activity.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+                    Group(label("开发实验", "Developer experiments")) {
+                        SettingRow(label("后台屏技术验证", "Secondary display probe"), label("默认关闭", "Off by default")) {
+                            activity.startActivity(android.content.Intent().setClassName(activity,
+                                "lifeos.md.tapilot.experiment.BackgroundDisplayActivity"))
+                        }
+                    }
+                }
                 Group(label("关于 Tapilot", "About Tapilot")) { AppUpdateSettings(activity, zh) }
             }
         }

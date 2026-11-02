@@ -159,6 +159,14 @@ for the native UI, and the [Model Context Protocol](https://github.com/modelcont
 for the computer plugin. See [CREDITS.md](CREDITS.md) for more upstream projects,
 license identifiers and redistribution work still required before release.
 
+## Optional background-display experiment
+
+Debug builds offer **Settings → Developer experiments → Secondary display probe**.
+It is off by default and checks isolated rendering, captured frames, targeted
+gestures and test-app launches. It does not run agent tasks in the background.
+See the [experiment protocol and limits](docs/experiments/background-display.md).
+Beta and Release builds do not include the probe.
+
 ## License
 
 [MIT](LICENSE). Third-party components retain their own licenses.
