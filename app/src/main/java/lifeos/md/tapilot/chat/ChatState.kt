@@ -66,6 +66,7 @@ data class ChatState(
     val confirmation: String? = null,
     val preview: ChatAttachment? = null,
     val progress: ChatProgress? = null,
+    val handoffTaskId: String? = null,
 ) {
     val chinese: Boolean get() = language == "zh"
 

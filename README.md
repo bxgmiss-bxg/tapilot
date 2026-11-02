@@ -58,6 +58,16 @@ therefore remain unsupported even when their pixels are visible.
   connects a paired computer to the phone over pinned TLS. Wireless use requires
   an unlocked phone and exclusive control, without ADB or USB.
 
+### Take over a task
+
+Select **Take over** while a task runs. Wait for the stopped confirmation before
+using the phone; an action already dispatched may still finish while stopping.
+The handoff card offers **Return to app** and **Continue task**. Continuing keeps
+the saved task context and asks the agent to inspect the current screen before
+acting. It does not resend the original task as a fresh request. A saved composer
+draft is retained. A task waiting for your answer also offers these controls.
+Leaving the chat after a confirmed handoff does not restart the task.
+
 ## Try it
 
 Requires an **arm64 Android 11+** phone and a supported vision model. There is no
