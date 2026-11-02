@@ -1,17 +1,17 @@
 {
   "name": "tapilot",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "description": "On-device Android visual automation client powered by AccessibilityService and Midscene.",
   "license": "MIT",
   "author": "quanru (https://github.com/quanru)",
-  "homepage": "https://github.com/quanru/tapilot#readme",
+  "homepage": "https://github.com/tapilot-ai/tapilot#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/quanru/tapilot.git"
+    "url": "git+https://github.com/tapilot-ai/tapilot.git"
   },
   "bugs": {
-    "url": "https://github.com/quanru/tapilot/issues"
+    "url": "https://github.com/tapilot-ai/tapilot/issues"
   },
   "keywords": [
     "android",

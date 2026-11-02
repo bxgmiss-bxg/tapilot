@@ -138,7 +138,7 @@ diff --git a/dist/lib/cli/index.js b/dist/lib/cli/index.js
 diff --git a/dist/lib/test-cli.js b/dist/lib/test-cli.js
 --- a/dist/lib/test-cli.js
 +++ b/dist/lib/test-cli.js
-@@ -234,7 +234,6 @@
+@@ -234,8 +234,7 @@
          };
      };
      const external_node_url_namespaceObject = require("node:url");

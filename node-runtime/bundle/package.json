@@ -13,5 +13,6 @@
     "@earendil-works/pi-agent-core": "1.1.0",
     "@earendil-works/pi-ai": "1.1.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "packageManager": "pnpm@12.4.1"
 }

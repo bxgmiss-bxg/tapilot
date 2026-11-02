@@ -4,14 +4,14 @@
   "description": "Android AccessibilityService device adapter for Midscene",
   "license": "MIT",
   "author": "quanru (https://github.com/quanru)",
-  "homepage": "https://github.com/quanru/tapilot/tree/main/packages/android-accessibility#readme",
+  "homepage": "https://github.com/tapilot-ai/tapilot/tree/main/packages/android-accessibility#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/quanru/tapilot.git",
+    "url": "git+https://github.com/tapilot-ai/tapilot.git",
     "directory": "packages/android-accessibility"
   },
   "bugs": {
-    "url": "https://github.com/quanru/tapilot/issues"
+    "url": "https://github.com/tapilot-ai/tapilot/issues"
   },
   "main": "./dist/lib/index.js",
   "module": "./dist/es/index.mjs",

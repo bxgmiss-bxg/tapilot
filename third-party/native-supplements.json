@@ -6,7 +6,7 @@
     "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
   },
   {
-    "id": "libsqlite_3.54.1_aarch64.deb",
+    "id": "libsqlite_3.54.1-1_aarch64.deb",
     "path": "third-party/notices/native/sqlite-3.54.1-NOTICE.txt",
     "url": "https://raw.githubusercontent.com/sqlite/sqlite/57520227c95396ce39ba6ecaac8d475b78dd3964/src/sqlite.h.in",
     "sha256": "85806d613cfda5901f848b3b5b4b04396c8c64e89c97c0af3706c42b0c44bb47",

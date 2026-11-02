@@ -305,7 +305,7 @@ test("installation guidance includes both APK sources and needs no phone", async
   const result = await c.configure({action:'setup'});
   assert.equal(result.structuredContent.state, 'setup_required');
   assert.equal(result.structuredContent.downloads.feishu, 'https://www.feishu.cn/file/Ig0KbUKlJoADozxRbOocm5iqnXf');
-  assert.equal(result.structuredContent.downloads.github, 'https://github.com/quanru/tapilot/releases');
+  assert.equal(result.structuredContent.downloads.github, 'https://github.com/tapilot-ai/tapilot/releases');
   assert.match(result.structuredContent.download_links, /\[Download Tapilot APK from Feishu/);
   assert.match(result.structuredContent.compatibility, /wireless control/);
   assert.equal(result.structuredContent.pairing.command, 'node');

@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 
 export const APK_DOWNLOADS = {
   feishu: 'https://www.feishu.cn/file/Ig0KbUKlJoADozxRbOocm5iqnXf',
-  github: 'https://github.com/quanru/tapilot/releases',
+  github: 'https://github.com/tapilot-ai/tapilot/releases',
 };
 export const getInstallationGuide = () => ({
   state: 'setup_required',

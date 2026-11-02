@@ -9,7 +9,7 @@ email `quanruzhuoxiu@gmail.com` with a minimal redacted description.
 
 If you discover a security vulnerability in Tapilot, please **do not open a
 public GitHub issue**. Instead, report it privately through
-[GitHub Security Advisories](https://github.com/quanru/tapilot/security/advisories/new)
+[GitHub Security Advisories](https://github.com/tapilot-ai/tapilot/security/advisories/new)
 or contact the maintainer directly.
 
 Please include:

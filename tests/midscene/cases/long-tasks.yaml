@@ -30,8 +30,14 @@ cases:
     steps:
       - app.open: {}
       - aiAct: >-
-          Create a new Tapilot conversation and preserve the current automatic-reply speech
-          setting. Confirm model login and device control are ready; fail with missing
+          Return to Tapilot's main chat. Open the conversation dropdown at the top right
+          beside the speaker icon and select New conversation / 新对话. Stop when the
+          message area is empty. Preserve model and speech settings; do not send a task.
+      - aiAssert: >-
+          The new Tapilot conversation has an empty message area and composer, with no
+          earlier requests, assistant answers or error bubbles.
+      - aiAct: >-
+          In this empty conversation, preserve the current automatic-reply speech setting. Confirm model login and device control are ready; fail with missing
           prerequisites if not. Submit this task: "打开系统设置，查看 Android 版本、已用和总存储空间，
           再查看自动亮度是否开启。只读取，不修改设置。逐项核对屏幕，并用中文返回实际 看到的值；没看到的写未知，不要猜测。不使用语音。" Stop interacting
           after submitting. Do not query system settings yourself.

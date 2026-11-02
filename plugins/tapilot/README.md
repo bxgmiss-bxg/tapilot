@@ -3,7 +3,7 @@
 The npm package and primary command are `tapilot`; `android-use` remains a compatibility alias.
 
 ```sh
-git clone https://github.com/quanru/tapilot.git
+git clone https://github.com/tapilot-ai/tapilot.git
 cd tapilot
 npm ci --prefix plugins/tapilot
 node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
@@ -117,7 +117,7 @@ no root `.agents` directory is required.
 ## Pair and operate
 
 Download Tapilot: [Feishu APK](https://www.feishu.cn/file/Ig0KbUKlJoADozxRbOocm5iqnXf)
-· [GitHub Releases](https://github.com/quanru/tapilot/releases).
+· [GitHub Releases](https://github.com/tapilot-ai/tapilot/releases).
 Use a build supporting wireless control; `setup` returns the installation guide.
 
 ```sh

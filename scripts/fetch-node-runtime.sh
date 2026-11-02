@@ -11,11 +11,11 @@ staging="${work_directory}/staging"
 trap 'rm -rf "${work_directory}"' EXIT
 
 packages=(
-  'n/nodejs-lts/nodejs-lts_24.22.1_aarch64.deb c4aae57009e4398613807d77ff395026455fe03b6d9d8a29f929212b04f74719'
+  'n/nodejs-lts/nodejs-lts_24.22.2_aarch64.deb 150d7dd382e92587808d96813b9538fe5c6c41fa33f1a1033daa4e30c6ff2695'
   'c/c-ares/c-ares_1.34.9_aarch64.deb 623d84855e176f3f2a415d24c0e1d2f529356f4b5439bb3313e6d7ff0da4585c'
   'libc/libc++/libc++_30_aarch64.deb 53d0b84a7ba7459024257cb94d5b136fe13ef858567f65a8064b35950799f2ca'
   'libi/libicu/libicu_78.3_aarch64.deb f536403f65a08fe0df6e7304184e902d54def77d5c3bd5edfd9109d57601d276'
-  'libs/libsqlite/libsqlite_3.54.1_aarch64.deb 0856cac8cc87f6e112f2eef4fcac6ad5cb08209ecb7cc260f997874fc186a3c0'
+  'libs/libsqlite/libsqlite_3.54.1-1_aarch64.deb 661fb995f7215845007b222a85266ae99d9443e87e0604f8677edfd738e6b81a'
   'o/openssl/openssl_1%3A3.6.5_aarch64.deb a2fb7856875e63ef6b90442752e05974813372c3ca86d2513a78ea43c67a0f8b'
   'z/zlib/zlib_1.3.2_aarch64.deb 75e7d0af17fcc3b40004309fdc00a1ddb9ae08346dce5e269902c34ac3966ac9'
 )

@@ -4,8 +4,16 @@ cases:
     steps:
       - app.open: {}
       - aiAct: >-
-          Create a new Tapilot conversation. Preserve model and speech settings and do not
-          start the microphone. Submit this exact text: "帮我算两个数相乘。先问我是哪两个数，等我下一条消息再计算。不要操作手机，不用语音。"
+          Return to Tapilot's main chat. Open the conversation dropdown using the
+          speech-bubble icon at the top right beside the speaker icon, then select
+          New conversation / 新建会话. The message area must become empty, even if the
+          previous conversation already contains a similar test request. Preserve all
+          model and speech settings. Do not type, submit a task or start the microphone.
+      - aiAssert: >-
+          Tapilot shows an empty new conversation with an empty composer. No earlier user
+          messages, assistant answers or error bubbles are visible in the message area.
+      - aiAct: >-
+          In this empty conversation, submit this exact text: "帮我算两个数相乘。先问我是哪两个数，等我下一条消息再计算。不要操作手机，不用语音。"
           Stop interacting after submission; do not answer on Tapilot's behalf.
       - task.waitForIdle: {}
       - aiAssert: >-

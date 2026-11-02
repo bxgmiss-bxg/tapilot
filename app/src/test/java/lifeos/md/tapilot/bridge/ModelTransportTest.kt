@@ -9,6 +9,8 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.EOFException
+import java.net.InetAddress
+import java.net.Proxy
 import java.net.ServerSocket
 import java.net.SocketTimeoutException
 import java.util.Base64
@@ -18,6 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.concurrent.thread
 
 class ModelTransportTest {
+    // These fixtures exercise local sockets, independent of host proxy and wildcard routing.
+    private fun localServer() = ServerSocket(0, 50, InetAddress.getByName("127.0.0.1"))
     private fun params() = JSONObject().put("url", "https://model.example/completions")
         .put("method", "POST").put("bodyBase64", Base64.getEncoder().encodeToString("{}".toByteArray()))
     private fun execute(transport: ModelTransport, params: JSONObject = params()): Result<JSONObject> {
@@ -32,7 +36,7 @@ class ModelTransportTest {
         .body("{}".toResponseBody()).build()
 
     @Test fun `unreachable configured proxy produces recovery guidance without leaking its address`() {
-        val port = ServerSocket(0).use { it.localPort }
+        val port = localServer().use { it.localPort }
         val client = OkHttpClient.Builder()
             .proxy(java.net.Proxy(java.net.Proxy.Type.HTTP, java.net.InetSocketAddress("127.0.0.1", port)))
             .connectTimeout(200, TimeUnit.MILLISECONDS).retryOnConnectionFailure(false).build()
@@ -60,7 +64,7 @@ class ModelTransportTest {
     }
 
     @Test fun `real truncated response reconnects with the same model payload`() {
-        ServerSocket(0).use { server ->
+        localServer().use { server ->
             server.soTimeout = 4000
             val bodies = mutableListOf<String>()
             var serverError: Throwable? = null
@@ -87,7 +91,7 @@ class ModelTransportTest {
                     }
                 } catch (error: Throwable) { serverError = error }
             }
-            val client = OkHttpClient.Builder().retryOnConnectionFailure(false).addInterceptor { chain ->
+            val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false).addInterceptor { chain ->
                 chain.proceed(chain.request().newBuilder().url("http://127.0.0.1:${server.localPort}/completions").build())
             }.build()
             ModelTransport(client).use { transport ->
@@ -103,7 +107,7 @@ class ModelTransportTest {
     }
 
     @Test fun `consecutive requests reuse a connection and emit redacted transport metrics`() {
-        ServerSocket(0).use { server ->
+        localServer().use { server ->
             server.soTimeout = 4000
             var serverError: Throwable? = null
             val worker = thread {
@@ -127,7 +131,7 @@ class ModelTransportTest {
                 } catch (error: Throwable) { serverError = error }
             }
             val records = mutableListOf<JSONObject>()
-            val client = OkHttpClient.Builder().retryOnConnectionFailure(false).addInterceptor { chain ->
+            val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false).addInterceptor { chain ->
                 chain.proceed(chain.request().newBuilder().url("http://127.0.0.1:${server.localPort}/completions").build())
             }.build()
             ModelTransport(client, onTiming = { records.add(it) }).use { transport ->
@@ -184,7 +188,7 @@ class ModelTransportTest {
     }
 
     @Test fun `real silent connection times out and recovers on a new socket`() {
-        ServerSocket(0).use { server ->
+        localServer().use { server ->
             server.soTimeout = 3000
             val bodies = mutableListOf<String>()
             var serverError: Throwable? = null
@@ -215,7 +219,7 @@ class ModelTransportTest {
                 } catch (error: Throwable) { serverError = error }
                 finally { sockets.forEach { it.close() } }
             }
-            val client = OkHttpClient.Builder().readTimeout(150, TimeUnit.MILLISECONDS)
+            val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY).readTimeout(150, TimeUnit.MILLISECONDS)
                 .retryOnConnectionFailure(false).addInterceptor { chain ->
                     chain.proceed(chain.request().newBuilder().url("http://127.0.0.1:${server.localPort}/completions").build())
                 }.build()

@@ -78,7 +78,8 @@ export async function createPairingWindow({ host = pairingAddress(), pair = pair
   const receiver = createSecureServer({key:certificate.private,cert:certificate.cert,minVersion:'TLSv1.2'},handler);
   receiver.on('tlsClientError',()=>{});
   await new Promise((resolve,reject)=>{server.once('error',reject);server.listen(0,'127.0.0.1',resolve);});
-  try { await new Promise((resolve,reject)=>{receiver.once('error',reject);receiver.listen(0,'0.0.0.0',resolve);}); } catch(error) {server.close();throw error;}
+  // Only expose the pairing receiver on the address advertised by its pinned QR.
+  try { await new Promise((resolve,reject)=>{receiver.once('error',reject);receiver.listen(0,host,resolve);}); } catch(error) {server.close();throw error;}
   const port=server.address().port;
   const payload='tapilot://computer/'+Buffer.from(JSON.stringify({version:1,url:`https://${host}:${receiver.address().port}/offer/${nonce}`,fingerprint,expiresAt})).toString('base64url');
   html=(await readFile(new URL('../ui/pairing.html',import.meta.url),'utf8')).replace('<!--INSTALLATION-->', await installationHtml());
