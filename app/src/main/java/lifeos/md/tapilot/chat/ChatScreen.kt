@@ -72,6 +72,7 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
                         Text(label("配置模型 API，开始对话", "Configure model API to start chatting"))
                     }
                 }
+                if (state.showFirstTaskGuide && !state.running) FirstTaskCard(controller, busy)
                 if (state.messages.isEmpty()) {
                     Column(Modifier.weight(1f).fillMaxWidth().padding(36.dp),
                         verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {

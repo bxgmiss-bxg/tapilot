@@ -74,6 +74,13 @@ The composer offers automatic execution (YOLO), confirmation for critical
 operations, or confirmation for every phone operation. **New installations default
 to YOLO.** Choose the confirmation mode appropriate to your task before sending it.
 
+The first-task guide shows whether a model is configured and device control is
+connected. It can fill a Calculator example into an empty composer; you review
+and send it yourself. Existing drafts and attachments are retained. Configuration
+is not a successful connection test: the task exercises the model, screenshots
+and actions. The guide stays available after a failure, and is dismissed after a
+verified phone task succeeds or when you choose Skip guide.
+
 ### Set up voice input (optional)
 
 In **Settings → Voice input**, choose a provider. The app includes links to its

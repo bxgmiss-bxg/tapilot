@@ -169,6 +169,7 @@ class NativeConversationCoordinator(
             attachment = ChatAttachment.parse(pendingAttachment), preview = preview,
             progress = if (inputControl.paused && running && !cancellation.get()) progress?.copy(
                 title = local("已暂停 · 发送或离开聊天后继续", "Paused · send or leave to resume"), operation = "") else progress,
+            showFirstTaskGuide = ready && FirstTaskGuide.visible(data),
             confirmation = confirmationText))
     }
     fun command(value: JSONObject) {
@@ -194,6 +195,10 @@ class NativeConversationCoordinator(
                         ?: error("Unknown execution mode")
                     preference("executionMode", mode.wireValue)
                 }
+                "firstTaskExample" -> if (!running && pendingAttachment == null && data.optString("draft").isBlank()) {
+                    data.put("draft", FirstTaskGuide.example(chinese)); draftEpoch++; save(); focus()
+                }
+                "dismissFirstTask" -> if (!running) { data.put("firstTaskDismissed", true); save() }
                 "stop" -> stop()
                 "settings" -> if (!running) { messageLoads.discard(); settingsOpen = true; settings.clearStatus() }
                 "advanced" -> if (!running && data.optBoolean("advanced")) { messageLoads.discard(); advancedOpen = true }
@@ -490,6 +495,7 @@ class NativeConversationCoordinator(
                         ?.put(if (status in listOf("succeeded", "waiting_user")) "reply" else "detail", message)
                     find(id)?.let {
                         TaskLifecycle.finish(it, status, if (stopped.get()) "" else finalPhase)
+                        if (FirstTaskGuide.verifiedPhoneTask(it)) data.put("firstTaskCompleted", true)
                         android.util.Log.i("TapilotPerformance", JSONObject().put("phase", "task.wall")
                             .put("taskId", id).put("status", status)
                             .put("createdAt", it.getLong("createdAt")).put("completedAt", it.getLong("completedAt"))
