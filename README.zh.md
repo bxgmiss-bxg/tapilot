@@ -2,17 +2,21 @@
 
 # Tapilot
 
-**基于 [Midscene](https://github.com/web-infra-dev/midscene) 的纯视觉 Android 自动化。**
+**把手机上的事交给 Tapilot，用日常说话的方式告诉它。**
 
 [English](README.md) · **简体中文**
 
-用自然语言告诉 Tapilot 要做什么。Midscene 读取手机截图，理解画面、定位可见目标，
-再执行下一步操作。Tapilot 把 Agent 放到 Android 手机上运行，提供原生聊天界面和
-可回放的执行报告。
+让 Tapilot 打开应用、查找屏幕上的信息，或跨应用完成任务。
+执行中可以补充要求，也可以随时停止；结束后能回看截图和实际操作。
 
-视觉导航基于截图，不依赖 DOM 选择器、控件资源 ID 或 UI 树定位。
-Android `AccessibilityService` 提供截图、手势、系统导航和文字输入能力。
-日常运行**不需要 ADB、Shizuku 或 root**。项目仍处于实验阶段，模型判断和设备操作都可能失败。
+第一次可以试试：“打开计算器，计算 12 × 8。”先看手机上的结果，再打开执行报告，
+看看 Tapilot 是怎样完成的。
+
+Tapilot 会操作手机当前显示的页面，使用其他应用前请先等任务结束或停止任务。
+开始前需要连接支持的视觉模型，并开启 Android 无障碍权限。
+日常使用**不需要 ADB、Shizuku 或 root**。项目仍处于实验阶段，重要结果请自行核对。
+
+Powered by [Midscene](https://github.com/web-infra-dev/midscene)。
 
 [官网与视频演示](https://tapilot.lifeos.md/zh/)
 
@@ -23,18 +27,6 @@ Android `AccessibilityService` 提供截图、手势、系统导航和文字输�
 [观看中文演示](https://www.bilibili.com/video/BV1ANxb6XEMy/) · 约 78 秒。
 
 [下载视频](https://tapilot.lifeos.md/videos/tapilot-zh.mp4)
-
-## 纯视觉操作怎样完成
-
-![纯视觉操作与核验循环](artwork/visual-loop.zh.svg)
-
-Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负责 Android 原生界面、
-设备适配、模型请求、会话保存和任务生命周期。内置 Node.js 在手机上运行，
-模型推理使用你配置的远程服务。**端侧编排不等于离线推理。**
-
-无障碍服务承担设备执行，不是 Midscene 的视觉定位方式。原生文字编辑可能使用
-已聚焦的可编辑无障碍节点；应用启动使用 Android 的应用清单。因此，即使画面可见，
-自绘输入控件和受保护页面仍可能无法操作。
 
 ## 可以做什么
 
@@ -77,6 +69,18 @@ Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负
   [官方指南](https://developers.deepgram.com/docs/create-additional-api-keys)。
 
 将密钥粘贴到应用中，点击 **检查连接** 即可保存并验证。
+
+## 纯视觉操作怎样完成
+
+![纯视觉操作与核验循环](artwork/visual-loop.zh.svg)
+
+Midscene 负责视觉规划、目标定位、动作执行和报告。Tapilot 负责 Android 原生界面、
+设备适配、模型请求、会话保存和任务生命周期。内置 Node.js 在手机上运行，
+模型推理使用你配置的远程服务。**端侧编排不等于离线推理。**
+
+无障碍服务承担设备执行，不是 Midscene 的视觉定位方式。原生文字编辑可能使用
+已聚焦的可编辑无障碍节点；应用启动使用 Android 的应用清单。因此，即使画面可见，
+自绘输入控件和受保护页面仍可能无法操作。
 
 ## 构建与开发
 

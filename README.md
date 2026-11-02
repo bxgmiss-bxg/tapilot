@@ -2,18 +2,23 @@
 
 # Tapilot
 
-**Pure-vision Android automation powered by [Midscene](https://github.com/web-infra-dev/midscene).**
+**Give your Android phone a task in plain language.**
 
 **English** · [简体中文](README.zh.md)
 
-Tell Tapilot what to do. Midscene reads the phone's screenshots, locates visible
-targets and drives the next action. Tapilot runs the agent on your Android phone,
-with a native chat interface and replayable execution reports.
+Ask Tapilot to open an app, find information on screen or work through a task
+across apps. You can add instructions while it runs, stop it, and review the
+screenshots and actions afterward.
 
-Visual navigation uses screenshots rather than DOM selectors, resource IDs or
-UI-tree locators. Android's `AccessibilityService` supplies screenshots, gestures,
-system navigation and text input. Normal use requires **no ADB, Shizuku or root**.
-This is an experimental project; model decisions and device behavior can fail.
+For a first try: “Open Calculator and calculate 12 × 8.” Check the result on the
+phone, then open the execution report to see how Tapilot got there.
+
+Tapilot operates your phone’s visible screen, so let it finish or stop the task
+before using other apps. Setup requires a supported vision-model connection and
+Android accessibility permission. Everyday use needs **no ADB, Shizuku or root**.
+This project is experimental; always check important results.
+
+Powered by [Midscene](https://github.com/web-infra-dev/midscene).
 
 [Website & video demo](https://tapilot.lifeos.md)
 
@@ -24,21 +29,6 @@ This is an experimental project; model decisions and device behavior can fail.
 [Watch the English demo](https://www.youtube.com/watch?v=TwuMuZ59yog) · Approximately 78 seconds.
 
 [Download video](https://tapilot.lifeos.md/videos/tapilot-en.mp4)
-
-## How the visual loop works
-
-![Visual action and verification loop](artwork/visual-loop.en.svg)
-
-Midscene supplies the visual planning, locating, action execution and reports.
-Tapilot supplies the native Android UI, device adapter, model transport, saved
-conversations and task lifecycle. The embedded Node.js worker runs on the phone;
-model inference uses the configured remote provider. **On-device orchestration
-does not mean offline inference.**
-
-Accessibility is the device execution layer, not the visual locator. Native text
-editing can use the focused editable accessibility node, and app launch uses
-Android's launcher catalogue. Custom-rendered inputs and protected screens can
-therefore remain unsupported even when their pixels are visible.
 
 ## What you can do
 
@@ -90,6 +80,21 @@ console and official setup guide:
   [Official guide](https://developers.deepgram.com/docs/create-additional-api-keys).
 
 Paste the key into the app and select **Check connection** to save and verify it.
+
+## How the visual loop works
+
+![Visual action and verification loop](artwork/visual-loop.en.svg)
+
+Midscene supplies the visual planning, locating, action execution and reports.
+Tapilot supplies the native Android UI, device adapter, model transport, saved
+conversations and task lifecycle. The embedded Node.js worker runs on the phone;
+model inference uses the configured remote provider. **On-device orchestration
+does not mean offline inference.**
+
+Accessibility is the device execution layer, not the visual locator. Native text
+editing can use the focused editable accessibility node, and app launch uses
+Android's launcher catalogue. Custom-rendered inputs and protected screens can
+therefore remain unsupported even when their pixels are visible.
 
 ## Build and develop
 
