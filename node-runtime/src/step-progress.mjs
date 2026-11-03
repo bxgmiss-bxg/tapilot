@@ -8,10 +8,11 @@ export function createStepProgress(emit, scope) {
       if (!task.taskId || !['running', 'finished', 'failed', 'cancelled'].includes(task.status)) continue;
       if (!['Planning', 'Insight', 'Action Space'].includes(task.type)) continue;
       const id = `${scope}:${task.taskId}`;
-      const action = task.type === 'Planning' ? 'Plan' : String(task.subType || task.type).slice(0, 60);
+      const action = String(task.subType || task.type).slice(0, 60);
       // Locator descriptions describe the visible target, not the text being entered.
-      const target = task.type === 'Action Space' && !['Input', 'KeyboardPress'].includes(action) && typeof task.param?.locate?.prompt === 'string'
-        ? task.param.locate.prompt.slice(0, 240) : '';
+      const description = task.param?.locate?.description ?? task.param?.locate?.prompt;
+      const target = task.type === 'Action Space' && !['Input', 'KeyboardPress'].includes(action) && typeof description === 'string'
+        ? description.slice(0, 240) : '';
       const step = { id, action, target, status: task.status };
       const signature = JSON.stringify(step);
       if (seen.get(id) === signature) continue;

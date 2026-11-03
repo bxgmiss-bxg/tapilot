@@ -149,7 +149,7 @@ const launchNode = defineNode({
       .find((candidate) => candidate.name === 'Launch');
     if (!action) throw new Error('Android Launch action is unavailable');
     await runDirectStep('Launch', () => action.call(input), emitStep,
-      /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(input.uri) ? input.uri : '');
+      /^[a-zA-Z][a-zA-Z0-9_]*(\.[a-zA-Z0-9_]+)+$/.test(input.uri.split('/')[0]) ? input.uri.split('/')[0] : '');
     // startActivity returns before the window transition. Direct nodes bypass
     // aiAct's post-action wait; allow the new window to appear before aiQuery.
     await new Promise(resolve => setTimeout(resolve, 500));

@@ -65,3 +65,15 @@ test('the bundled Midscene Agent delivers real action snapshots through onDumpUp
     assert.ok(events.some(e => e.action === 'AndroidHomeButton' && e.status === 'finished'));
   } finally { await agent.destroy(); }
 });
+
+
+test('uses resolved SDK locator descriptions and keeps Locate distinct from Plan', () => {
+  const events = [];
+  createStepProgress(e => events.push(e), 'resolved')('', { tasks: [
+    { taskId: 'locate', type: 'Planning', subType: 'Locate', status: 'finished', param: { prompt: 'private locator input' } },
+    { taskId: 'tap', type: 'Action Space', subType: 'Tap', status: 'finished', param: { locate: { description: 'Equals button', center: [10, 20] } } },
+    { taskId: 'input', type: 'Action Space', subType: 'Input', status: 'finished', param: { locate: { description: 'private locator input' }, value: 'private input' } },
+  ] });
+  assert.deepEqual(events.map(e => [e.action, e.target]), [['Locate', ''], ['Tap', 'Equals button'], ['Input', '']]);
+  assert.doesNotMatch(JSON.stringify(events), /private/);
+});
