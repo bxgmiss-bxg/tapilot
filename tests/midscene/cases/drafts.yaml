@@ -44,6 +44,11 @@ cases:
           Verify both the attachment chip and the unsent text are present, then stop interacting.
       - fault.restart: {}
       - app.open: {}
+      - aiWaitFor:
+          prompt: The Tapilot main chat screen and task composer are visible after the app restart.
+          options:
+            timeoutMs: 30000
+            checkIntervalMs: 1000
       - aiAssert: >-
           The composer still contains DRAFT-RESTART-UNSENT and the tapilot-attachment-qa-
           text attachment after restarting. No task was sent or automatically started.
@@ -61,8 +66,13 @@ cases:
           This case only edits an unsent draft; do not submit or start any task or microphone.
           Create a new Tapilot conversation. Add a file through plus and Files. In Downloads
           select only the file whose name starts with tapilot-attachment-qa-.
-          Replace the composer text with DRAFT-BEFORE-SHARE without sending, then stop interacting.
-          Leave the keyboard open. Do not press Enter, Done, Send, or the keyboard action key.
+          Replace the composer text with DRAFT-BEFORE-SHARE without sending.
+          Do not press Enter, Done, Send, or the keyboard action key.
+      - aiAct: >-
+          Tap the composer containing DRAFT-BEFORE-SHARE to focus it and open the keyboard.
+          Wait up to ten seconds for the keyboard. Keep the text and attachment unchanged,
+          and stop only when the keyboard is visible. Do not send, submit, or dismiss the keyboard.
+      - aiAssert: The Android keyboard is visible and the focused composer contains DRAFT-BEFORE-SHARE.
       - aiAssert: The composer contains DRAFT-BEFORE-SHARE and the tapilot-attachment-qa- text attachment.
       - fixture.shareText: {}
       - aiAssert: >-

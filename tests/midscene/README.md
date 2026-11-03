@@ -426,7 +426,10 @@ Run the configured project without a positional directory so the project-relativ
 readiness and cleanup; its exit status propagates through the action. The hosted
 job explicitly opts into the resilience profile but selects only
 `smoke,draft-restart,share-draft`, so it never runs network faults or phone-side
-model tasks. All seven cases use zero retries. The fresh emulator contains no
+model tasks. All seven cases use zero retries. The disposable verification app is pre-granted
+notification permission before screenshots; microphone and other permissions are
+not granted. Restart assertions wait for the chat to become visible, then
+independently check the retained text and attachment. The fresh emulator contains no
 personal accounts. Screenshots and reports are
 published to the dedicated `tapilot-apk-reports` Cloudflare Pages project, with
 a per-run preview URL in the CI Summary. Pages publication follows delinoio/apps#893; the action's separate Workers

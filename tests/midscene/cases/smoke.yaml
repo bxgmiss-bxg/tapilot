@@ -7,6 +7,9 @@ cases:
           Return to the main Tapilot chat screen. Open the conversation menu at the top
           right and create a new conversation. Verify that the new conversation has an
           empty message area, a task composer, and the execution-mode control.
+          If a previous test left unsent text beginning with DRAFT- or CI-DRAFT-, clear only
+          that test text and remove only an attachment named tapilot-attachment-qa-.
+          Do not discard unrelated content. Finish with the test composer empty.
           Do not submit a task or start voice.
       - aiAct: >-
           Tap the empty task composer once to focus it. Wait up to 10 seconds for the

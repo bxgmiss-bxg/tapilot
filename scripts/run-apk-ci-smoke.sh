@@ -7,6 +7,8 @@ mkdir -p build/apk-midscene
 adb -s "$serial" get-state
 adb -s "$serial" shell getprop ro.product.cpu.abilist | tee build/apk-midscene/abis.txt
 adb -s "$serial" install -r "$apk" | tee build/apk-midscene/install.txt
+# Provision only notifications on this disposable verification app, before capture.
+adb -s "$serial" shell pm grant lifeos.md.tapilot.e2everify android.permission.POST_NOTIFICATIONS
 sha256sum "$apk" > build/apk-midscene/SHA256SUMS
 git rev-parse HEAD > build/apk-midscene/source.txt
 adb -s "$serial" shell dumpsys package lifeos.md.tapilot.e2everify > build/apk-midscene/package.txt
