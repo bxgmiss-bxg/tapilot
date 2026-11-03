@@ -17,6 +17,7 @@ import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.os.Handler
+import android.os.SystemClock
 import android.os.Looper
 import android.view.Display
 import android.view.Gravity
@@ -43,6 +44,9 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
     var status = "Off"; private set
     val displayId get() = display?.display?.displayId
     val active get() = display != null
+    var livePreview = false
+    private var lastSnapshotAt = 0L
+    private var gesturePending = false
     private var snapshotRequested = true
 
     fun start() {
@@ -56,11 +60,10 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
             frames = 0; taps = 0; snapshotRequested = true
             val images = ImageReader.newInstance(WIDTH, HEIGHT, PixelFormat.RGBA_8888, 2)
             reader = images
-            images.setOnImageAvailableListener({ source ->
-                if (run != generation) return@setOnImageAvailableListener
-                source.acquireLatestImage()?.use { image ->
+            val capture = Runnable {
+                if (run == generation) images.acquireLatestImage()?.use { image ->
                     frames++
-                    if (snapshotRequested) {
+                    if (snapshotRequested || livePreview) {
                         val plane = image.planes[0]
                         val paddedWidth = plane.rowStride / plane.pixelStride
                         val padded = Bitmap.createBitmap(paddedWidth, HEIGHT, Bitmap.Config.ARGB_8888)
@@ -69,10 +72,17 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
                         if (next !== padded) padded.recycle()
                         // The activity replaces its ImageView reference before the old bitmap is recycled.
                         val old = bitmap
-                        bitmap = next; snapshotRequested = false
+                        bitmap = next; snapshotRequested = false; lastSnapshotAt = SystemClock.uptimeMillis()
                         changed()
                         old?.recycle()
                     }
+                }
+            }
+            images.setOnImageAvailableListener({
+                // Consume the latest frame after throttling, including the final static frame.
+                if (run == generation && !handler.hasCallbacks(capture)) {
+                    val delay = if (livePreview) (100 - (SystemClock.uptimeMillis() - lastSnapshotAt)).coerceAtLeast(0) else 0
+                    handler.postDelayed(capture, delay)
                 }
             }, handler)
             display = host.getSystemService(DisplayManager::class.java).createVirtualDisplay(
@@ -110,23 +120,35 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
         val id = checkNotNull(displayId) { "Start the experiment first" }
         check(id != Display.DEFAULT_DISPLAY)
         val button = checkNotNull(target) { "Test tap is only available on our fixture" }
-        val service = checkNotNull(MidsceneAccessibilityService.current()) { "Enable this test app's device control first" }
         val point = IntArray(2); button.getLocationOnScreen(point)
         val path = Path().apply { moveTo(point[0] + button.width / 2f, point[1] + button.height / 2f) }
+        dispatchPath(path, 80)
+    }
+
+    fun dispatchPath(path: Path, duration: Long) {
+        val id = checkNotNull(displayId) { "Start the experiment first" }
+        check(id != Display.DEFAULT_DISPLAY)
+        check(!gesturePending) { "Wait for the previous gesture result" }
+        val service = checkNotNull(MidsceneAccessibilityService.current()) { "Enable this test app's device control first" }
         val gesture = GestureDescription.Builder().setDisplayId(id)
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 80)).build()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, duration.coerceIn(1, 5000))).build()
         val run = generation
-        val accepted = service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
+        gesturePending = true
+        val accepted = try { service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription) {
                 if (run != generation) return
+                gesturePending = false
+                snapshotRequested = true
                 status = "Gesture dispatched to display $id; fixture taps observed: $taps"
                 changed()
             }
             override fun onCancelled(gestureDescription: GestureDescription) {
                 if (run != generation) return
-                status = "Secondary-display gesture cancelled"; changed()
+                gesturePending = false
+                status = "Secondary-display gesture cancelled; no primary-screen fallback"; changed()
             }
-        }, handler)
+        }, handler) } catch (failure: Exception) { gesturePending = false; throw failure }
+        if (!accepted) gesturePending = false
         check(accepted) { "System refused the secondary-display gesture" }
         status = "Waiting for gesture result"; changed()
     }
@@ -156,7 +178,8 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
 
     override fun close() {
         generation++
-        handler.removeCallbacks(timeout)
+        livePreview = false; gesturePending = false
+        handler.removeCallbacksAndMessages(null)
         presentation?.dismiss(); presentation = null; target = null
         display?.release(); display = null
         reader?.setOnImageAvailableListener(null, null)
@@ -171,7 +194,7 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
 
     companion object {
         private const val OWNER = "background-display-probe"
-        private const val WIDTH = 480
-        private const val HEIGHT = 800
+        const val WIDTH = 480
+        const val HEIGHT = 800
     }
 }

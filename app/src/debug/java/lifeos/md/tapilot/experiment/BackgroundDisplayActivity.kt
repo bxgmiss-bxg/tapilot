@@ -6,6 +6,8 @@ import android.content.ComponentName
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.net.Uri
+import android.provider.Settings
 import android.view.ViewGroup
 import android.widget.*
 import lifeos.md.tapilot.AppLanguage
@@ -16,6 +18,7 @@ class BackgroundDisplayActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var preview: ImageView
     private lateinit var input: EditText
+    private var floating: FloatingDisplayWindow? = null
     private var zh = false
     private fun text(chinese: String, english: String) = if (zh) chinese else english
 
@@ -49,6 +52,15 @@ class BackgroundDisplayActivity : Activity() {
         button("开始实验", "Start experiment") { probe.start() }
         button("点击副屏测试按钮", "Tap secondary fixture") { probe.tapFixture() }
         button("选择测试应用", "Choose a test app") { chooseApp() }
+        button("悬浮显示并操作", "Float and control display") {
+            check(probe.active) { "Start the experiment first" }
+            if (!Settings.canDrawOverlays(this)) {
+                startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+            } else {
+                if (floating == null) floating = FloatingDisplayWindow(this, probe, zh) { probe.close() }
+                floating?.show()
+            }
+        }
         button("更新预览", "Refresh preview") { probe.refresh() }
         button("停止并释放", "Stop and release") { probe.close() }
         layout.addView(status)
@@ -74,7 +86,8 @@ class BackgroundDisplayActivity : Activity() {
         if (!::status.isInitialized || !::probe.isInitialized) return
         status.text = "${probe.status}\nframes=${probe.frames}, taps=${probe.taps}, primaryInputFocused=${input.hasFocus()}"
         preview.setImageBitmap(probe.bitmap)
+        floating?.render()
     }
 
-    override fun onDestroy() { if (::probe.isInitialized) probe.close(); super.onDestroy() }
+    override fun onDestroy() { floating?.close(); if (::probe.isInitialized) probe.close(); super.onDestroy() }
 }

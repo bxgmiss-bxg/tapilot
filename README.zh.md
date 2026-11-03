@@ -144,6 +144,11 @@ Debug 版本提供“设置 → 开发实验 → 后台屏技术验证”，默�
 实验检查独立渲染、截图、定向手势和测试应用启动，尚不支持后台执行 Agent 任务。
 具体操作和限制见[实验说明](docs/experiments/background-display.md)。Beta 和 Release 不包含实验台。
 
+## 虚拟屏悬浮预览
+
+Debug 实验支持在其他应用上方悬浮显示虚拟屏，可拖动窗口，并向副屏发送点击和滑动请求。
+系统仍可能拒绝副屏输入。开启方法和限制见[悬浮虚拟屏说明](docs/experiments/floating-virtual-display.md)。
+
 ## 许可证
 
 采用 [MIT 许可证](LICENSE)。第三方组件继续遵循各自许可证，详见

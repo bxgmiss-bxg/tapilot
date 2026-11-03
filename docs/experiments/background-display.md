@@ -13,7 +13,7 @@ Beta 和 Release 不包含实验 Activity。打开实验页本身不会创建副
 实验以 480 × 800 像素创建私有 VirtualDisplay，使用 OWN_CONTENT_ONLY 防止镜像主屏。
 ImageReader 读取副屏实际帧，Presentation 提供无业务副作用的测试按钮。
 点击测试按钮通过无障碍服务的指定 displayId 手势执行，界面上的 taps 只记录按钮实际收到的点击。
-截图保留在内存中，不发给模型，不自动导出。应用没有新增长期权限或系统网络配置。
+截图保留在内存中，不发给模型，不自动导出。悬浮预览需单独授权“显示在其他应用上层”，仅 Debug 声明该权限；不会修改系统网络配置。
 
 ## 验证方法
 
@@ -48,3 +48,8 @@ Redmi K30 Ultra、Android 12 上可独立渲染和截图，副屏手势被取消
 - [Android 多屏启动规则](https://source.android.com/docs/core/display/multi_display/activity-launch)
 - [ActivityOptions.setLaunchDisplayId](https://developer.android.com/reference/android/app/ActivityOptions#setLaunchDisplayId(int))
 - [GestureDescription.Builder.setDisplayId](https://developer.android.com/reference/android/accessibilityservice/GestureDescription.Builder#setDisplayId(int))
+
+## 悬浮显示与操作
+
+副屏支持可拖动的悬浮预览，点击和滑动只向副屏发送，不回退主屏。
+开启方法、权限与限制见[悬浮虚拟屏说明](floating-virtual-display.md)。
