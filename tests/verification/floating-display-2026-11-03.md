@@ -58,3 +58,20 @@ The light-blue fill belongs to the fixture itself. This visual check does not es
 
 - [Borderless preview over Home](floating-display-2026-11-03/emulator-borderless-home.png)
 - [Preview after dragging](floating-display-2026-11-03/emulator-borderless-moved.png)
+
+
+### Android 15 emulator capability and lifecycle recheck
+
+Reused the isolated Pixel 7 ARM64 / API 35 emulator with the borderless APK (implementation commit `2fea4a9`; later commits only update documentation). APK SHA-256: `bd3187e87fb111de037a0334767a087bc9a1c9eb34f895235436609aed9dda7c`. The test package's accessibility service was enabled and confirmed bound before exercising input. No root, shell injection into the virtual display, or model calls were used to make secondary input succeed. ADB drove the primary-screen test controls only.
+
+1. Start the display and press **Tap secondary fixture**. Android cancels the gesture; the actual fixture counter remains zero. [Evidence](floating-display-2026-11-03/emulator-verify-tap.png).
+2. Choose **Clock** from the app picker. The app reports that the system disallows launching it on the experiment display. The primary screen remains on the probe. [Evidence](floating-display-2026-11-03/emulator-verify-launch.png).
+3. Open the floating preview. At the existing two-minute limit the overlay disappears, the preview clears, and status reports timeout/release. A drag attempted at the timeout boundary landed on the now-exposed primary input; this is not counted as a virtual-display swipe result. [Evidence](floating-display-2026-11-03/emulator-verify-swipe-drag.png).
+4. Restart and float the new display (ID 3). The fixture appears again. [Evidence](floating-display-2026-11-03/emulator-verify-recreated.png).
+5. Swipe inside the active floating preview. Android cancels this gesture too, the explicit cancellation message appears and the counter stays zero. [Evidence](floating-display-2026-11-03/emulator-verify-swipe-cancelled.png).
+6. Drag the handle to the right. The window moves and retains its content. [Evidence](floating-display-2026-11-03/emulator-verify-dragged.png).
+7. Type `main_ok` into the exposed primary input while the overlay remains visible. Text and keyboard work on the primary screen. [Evidence](floating-display-2026-11-03/emulator-verify-primary-input.png).
+8. Press the overlay close control. Status changes to `Off; experiment resources released`, both previews disappear and primary text is preserved. `dumpsys display` contains no Tapilot probe display after closing. [Evidence](floating-display-2026-11-03/emulator-verify-close.png).
+9. Start and float again, then leave the experiment with Back. Home has no floating preview and `dumpsys display` again contains no Tapilot probe display. Shut down the isolated emulator and release the runtime slot. [Evidence](floating-display-2026-11-03/emulator-verify-destroyed.png).
+
+Result: rendering, capture, movement, primary input and cleanup pass in this emulator. Secondary input and Clock launch do not. These results reproduce the capability limitations beyond the two physical OEM devices; they do not establish that every Android configuration rejects secondary input. Keep the feature experimental and do not route production Agent tasks to it.
