@@ -39,3 +39,26 @@ test('a failed execution still returns an existing HTML report through the bundl
     rmSync(project, { recursive: true, force: true });
   }
 });
+
+for (const [scenario, source, expectedCode, expectedFailure] of [
+  ['config loading fails', "throw new Error('runtime dependency failed to load')", 1, /runtime dependency failed to load/],
+  ['worker exits before producing a report', 'process.exit(23)', 23, null],
+]) {
+  test(scenario + ' preserves the failure signal without inventing a report', () => {
+    const root = fileURLToPath(new URL('../build/node-runtime-bundle/', import.meta.url));
+    const project = mkdtempSync(join(tmpdir(), 'tapilot-startup-failure-'));
+    try {
+      const config = join(project, 'midscene.config.mjs');
+      writeFileSync(config, source);
+      const execution = spawnSync(process.execPath, [join(root, 'runner.mjs'), 'test',
+        '--project-root', project, '--result-dir', join(project, 'results'), '--config', config],
+        { cwd: root, encoding: 'utf8', timeout: 30000 });
+      assert.equal(execution.status, expectedCode, execution.stderr || execution.error?.message);
+      const events = execution.stdout.split('\n').filter(line => line.startsWith('MIDSCENE_EVENT '))
+        .map(line => JSON.parse(line.slice('MIDSCENE_EVENT '.length)));
+      assert.ok(events.some(event => event.type === 'test.started'));
+      assert.ok(!events.some(event => event.type === 'test.completed'));
+      if (expectedFailure) assert.match(events.find(event => event.type === 'run.failed')?.message ?? '', expectedFailure);
+    } finally { rmSync(project, { recursive: true, force: true }); }
+  });
+}

@@ -128,6 +128,9 @@ internal fun TaskProgressView(progress: ChatProgress, controller: ChatController
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(progress.title + " · ${seconds}s", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+            TextButton(onClick = { controller.command("takeOver") }, enabled = !progress.stopping) {
+                Text(if (zh) "我来处理" else "Take over", fontSize = 13.sp)
+            }
             TextButton(onClick = { controller.command("stop") }, enabled = !progress.stopping, contentPadding = PaddingValues(0.dp)) {
                 Text(if (zh) "停止" else "Stop", fontSize = 13.sp)
             }
@@ -135,7 +138,7 @@ internal fun TaskProgressView(progress: ChatProgress, controller: ChatController
         Text(if (zh) "继续输入或长按说话可补充要求；切换请说“换个任务”" else "Type or hold to add instructions; say “new task” to switch",
             fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (progress.detail.isNotBlank()) Text(progress.detail, fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        if (progress.operation.isNotBlank()) Text("操作 ${progress.step} · ${progress.operation}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        if (progress.operation.isNotBlank()) Text((if (zh) "操作 ${progress.step}" else "Operation ${progress.step}") + " · ${progress.operation}", fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

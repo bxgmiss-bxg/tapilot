@@ -4,12 +4,126 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      device_e2e:
+        description: Build and install the verification APK on the dedicated Android phone, then run Midscene smoke cases
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
-  group: checks-${{ github.ref }}
+  group: checks-${{ inputs.device_e2e && github.run_id || github.ref }}
   cancel-in-progress: true
 jobs:
+  device-e2e-config:
+    if: github.event_name == 'workflow_dispatch' && inputs.device_e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require dedicated device and model configuration before queuing a runner
+        shell: bash
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          TAPILOT_E2E_DEVICE_ID: ${{ vars.TAPILOT_E2E_DEVICE_ID }}
+          TAPILOT_E2E_DEDICATED_DEVICE: ${{ vars.TAPILOT_E2E_DEDICATED_DEVICE }}
+          MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
+          MIDSCENE_MODEL_BASE_URL: ${{ vars.MIDSCENE_MODEL_BASE_URL }}
+          MIDSCENE_MODEL_NAME: ${{ vars.MIDSCENE_MODEL_NAME }}
+          MIDSCENE_MODEL_FAMILY: ${{ vars.MIDSCENE_MODEL_FAMILY }}
+        run: |
+          set -euo pipefail
+          missing=0
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID TAPILOT_E2E_DEVICE_ID MIDSCENE_MODEL_API_KEY MIDSCENE_MODEL_BASE_URL MIDSCENE_MODEL_NAME MIDSCENE_MODEL_FAMILY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Configure repository Actions secret/variable $name"
+              missing=1
+            fi
+          done
+          if [[ "$TAPILOT_E2E_DEDICATED_DEVICE" != 1 ]]; then
+            echo '::error::Set TAPILOT_E2E_DEDICATED_DEVICE=1 only for a dedicated CI phone.'
+            missing=1
+          fi
+          exit "$missing"
+
+  device-e2e:
+    name: Midscene Android E2E
+    needs: device-e2e-config
+    # Never execute pull-request code on the USB-connected device runner.
+    runs-on: [self-hosted, Linux, tapilot-android]
+    timeout-minutes: 120
+    concurrency:
+      # Share the device lease with the existing native performance workflow.
+      group: tapilot-performance-device
+      cancel-in-progress: false
+    env:
+      CI: '1'
+      TAPILOT_E2E_DEVICE_ID: ${{ vars.TAPILOT_E2E_DEVICE_ID }}
+      TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
+      TAPILOT_E2E_DISPLAY_ID: ${{ vars.TAPILOT_E2E_DISPLAY_ID || '0' }}
+      TAPILOT_E2E_SCREEN_INFO: ${{ vars.TAPILOT_E2E_SCREEN_INFO || 'physical' }}
+      MIDSCENE_MODEL_BASE_URL: ${{ vars.MIDSCENE_MODEL_BASE_URL }}
+      MIDSCENE_MODEL_NAME: ${{ vars.MIDSCENE_MODEL_NAME }}
+      MIDSCENE_MODEL_FAMILY: ${{ vars.MIDSCENE_MODEL_FAMILY }}
+      MIDSCENE_MODEL_PROTOCOL: ${{ vars.MIDSCENE_MODEL_PROTOCOL || 'openai-chat' }}
+      MIDSCENE_REPORT_QUIET: 'true'
+      NODE_OPTIONS: --network-family-autoselection-attempt-timeout=2000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '12.4.1'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Verify the dedicated ARM64 phone
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(adb -s "$TAPILOT_E2E_DEVICE_ID" get-state)" = device
+          adb -s "$TAPILOT_E2E_DEVICE_ID" shell getprop ro.product.cpu.abilist | grep -q arm64-v8a
+          adb -s "$TAPILOT_E2E_DEVICE_ID" shell dumpsys power | grep -q 'mWakefulness=Awake'
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: pnpm install --frozen-lockfile
+      - run: npm ci --prefix tests/midscene
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
+      - run: npm --prefix tests/midscene run check
+      - name: Build the current source as an isolated verification APK
+        run: |
+          pnpm runtime:bundle
+          pnpm runtime:node
+          ./gradlew :app:assembleDebug -Pe2eVerification --max-workers=2 --no-parallel --no-daemon
+      - name: Install verification APK and record its identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          adb -s "$TAPILOT_E2E_DEVICE_ID" install -r app/build/outputs/apk/debug/app-debug.apk
+          mkdir -p tests/midscene/midscene_run/ci
+          git rev-parse HEAD > tests/midscene/midscene_run/ci/source.txt
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > tests/midscene/midscene_run/ci/SHA256SUMS
+      - name: Run Android smoke cases and collect native Midscene reports
+        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1; same revision as Midscene main
+        env:
+          MIDSCENE_MODEL_API_KEY: ${{ secrets.MIDSCENE_MODEL_API_KEY }}
+          MIDSCENE_INCLUDE_TAGS: smoke
+          MIDSCENE_EXCLUDE_TAGS: ''
+        with:
+          working-directory: tests/midscene
+          command: npm run check:model && npm test -- cases/smoke.yaml
+          artifact-name: midscene-android-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: '7'
+          publish-pages: 'true'
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          cloudflare-worker-name: tapilot-midscene-reports
+
   midscene-e2e:
     name: Midscene E2E checks
     runs-on: ubuntu-latest

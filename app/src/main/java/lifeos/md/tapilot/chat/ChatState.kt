@@ -35,7 +35,7 @@ data class ChatOperation(val instruction: String, val success: Boolean, val resu
 
 data class ChatTask(val phase: String, val plan: List<String>, val currentStep: Int,
     val modelTurns: Int, val phoneOperations: Int, val attempt: Int, val operations: List<ChatOperation>,
-    val createdAt: Long = 0, val completedAt: Long = 0) {
+    val createdAt: Long = 0, val completedAt: Long = 0, val steps: List<ExecutionStep> = emptyList()) {
     val durationMillis: Long? get() = if (phase != "running" && createdAt > 0 && completedAt >= createdAt)
         completedAt - createdAt else null
 }
@@ -43,6 +43,7 @@ data class ChatProgress(val title: String, val detail: String, val operation: St
 
 data class ChatState(
     val ready: Boolean = false,
+    val showFirstTaskGuide: Boolean = false,
     val language: String = "zh",
     val dark: Boolean = false,
     val paletteId: String = "minimal",
@@ -66,6 +67,7 @@ data class ChatState(
     val confirmation: String? = null,
     val preview: ChatAttachment? = null,
     val progress: ChatProgress? = null,
+    val handoffTaskId: String? = null,
 ) {
     val chinese: Boolean get() = language == "zh"
 

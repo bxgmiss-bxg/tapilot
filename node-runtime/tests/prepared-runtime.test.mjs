@@ -95,3 +95,22 @@ test('activated product config executes once and accepts native RPC replies', as
     assert.equal(events.filter(e => e.method === 'device.execute').length, 1);
   } finally { child.kill('SIGKILL'); reader.close(); await rm(project, { recursive: true, force: true }); }
 });
+
+test('expired preparation explicitly reports that no test was started', async () => {
+  const root = dirname(fileURLToPath(import.meta.url));
+  // Accelerate only the production activation deadline; keep imports and stdio real.
+  const bootstrap = 'const original=setTimeout;globalThis.setTimeout=(fn,ms,...args)=>original(fn,ms===45000?20:ms,...args)';
+  const child = spawn(process.execPath, ['--import', 'data:text/javascript,' + encodeURIComponent(bootstrap),
+    join(root, 'runner.mjs'), 'prepare', '--project-root', root, '--result-dir', join(root, 'unused-results'),
+    '--config', join(root, 'android.config.mjs')], { cwd: root, stdio: ['pipe', 'pipe', 'pipe'] });
+  const exit = once(child, 'exit');
+  let stdout = '', stderr = '';
+  child.stdout.on('data', b => { stdout += b; });
+  child.stderr.on('data', b => { stderr += b; });
+  try {
+    assert.equal((await exit)[0], 0, stderr);
+    const events = stdout.split('\n').filter(line => line.startsWith('MIDSCENE_EVENT '))
+      .map(line => JSON.parse(line.slice('MIDSCENE_EVENT '.length)).type);
+    assert.deepEqual(events, ['runtime.prepared', 'runtime.expired']);
+  } finally { child.kill('SIGKILL'); }
+});

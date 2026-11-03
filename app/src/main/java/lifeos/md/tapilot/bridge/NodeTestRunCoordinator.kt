@@ -31,6 +31,7 @@ class NodeTestRunCoordinator(
     private val supervisor: NodeRuntimeProcessSupervisor = NodeRuntimeProcessSupervisor(),
     private val device: DeviceService = AndroidDeviceService(context),
     private val onProgress: (String) -> Unit = {},
+    private val onStep: (String, JSONObject) -> Unit = { _, _ -> },
 ) : AutoCloseable {
     private val appContext = context.applicationContext
     private val executor = Executors.newSingleThreadExecutor()
@@ -141,7 +142,7 @@ class NodeTestRunCoordinator(
                     val testSource = if (kind == "task") NaturalLanguageTaskWorkflow.asYaml(source) else source
                     File(projectRoot, "task.yaml").writeText(testSource)
                     recordTiming("prepareProject", projectStarted)
-                    start(runtime, projectRoot, effective, callback)
+                    start(runtime, projectRoot, effective, preparationSession, callback)
                 }
             }.onFailure { error ->
                 synchronized(preparationLock) { supervisor.discardPrepared() }
@@ -209,6 +210,7 @@ class NodeTestRunCoordinator(
         runtime: InstalledNodeRuntime,
         projectRoot: File,
         environment: Map<String, String>,
+        ownerSession: String?,
         callback: (Result<JSONObject>) -> Unit,
     ) {
         val completed = AtomicBoolean(false)
@@ -251,6 +253,9 @@ class NodeTestRunCoordinator(
                     }
                     val payload = JSONObject(event.payload)
                     when (event.type) {
+                        "execution.step" -> if (ownerSession != null && !completed.get() && !stopRequested.get()) {
+                            onStep(ownerSession, payload)
+                        }
                         "rpc.request" -> dispatchRpc(payload)
                         "runtime.prepared" -> Log.i("TapilotPerformance", JSONObject(event.payload)
                             .put("phase", "runner.preload").toString())
@@ -286,6 +291,11 @@ class NodeTestRunCoordinator(
                     }
                     runCatching {
                         updateStatus(TaskExecutionStatus.FINALIZING)
+                        // Startup failures and native crashes have no HTML report. Preserve
+                        // their cause before report import can replace it with a secondary error.
+                        if (completedAt == null) {
+                            throw nodeRunIncompleteError(exitCode, failureMessage, logs.toList(), environment)
+                        }
                         val importStarted = android.os.SystemClock.elapsedRealtime()
                         val importedReports = JSONArray()
                         for (index in 0 until agentReports.length()) {
@@ -313,7 +323,7 @@ class NodeTestRunCoordinator(
                         }
                         if (importedReports.length() == 0) {
                             val source = reportPath?.takeIf { it.isNotBlank() }?.let(::File)
-                                ?: error("Node Test Runner did not return a report")
+                                ?: throw nodeRunIncompleteError(exitCode, failureMessage, logs.toList(), environment)
                             importedReports.put(
                                 JSONObject()
                                     .put("reportId", reportRepository.importFile(source))

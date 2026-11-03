@@ -2,18 +2,23 @@
 
 # Tapilot
 
-**Pure-vision Android automation powered by [Midscene](https://github.com/web-infra-dev/midscene).**
+**Give your Android phone a task in plain language.**
 
 **English** · [简体中文](README.zh.md)
 
-Tell Tapilot what to do. Midscene reads the phone's screenshots, locates visible
-targets and drives the next action. Tapilot runs the agent on your Android phone,
-with a native chat interface and replayable execution reports.
+Ask Tapilot to open an app, find information on screen or work through a task
+across apps. You can add instructions while it runs, stop it, and review the
+screenshots and actions afterward.
 
-Visual navigation uses screenshots rather than DOM selectors, resource IDs or
-UI-tree locators. Android's `AccessibilityService` supplies screenshots, gestures,
-system navigation and text input. Normal use requires **no ADB, Shizuku or root**.
-This is an experimental project; model decisions and device behavior can fail.
+For a first try: “Open Calculator and calculate 12 × 8.” Check the result on the
+phone, then open the execution report to see how Tapilot got there.
+
+Tapilot operates your phone’s visible screen, so let it finish or stop the task
+before using other apps. Setup requires a supported vision-model connection and
+Android accessibility permission. Everyday use needs **no ADB, Shizuku or root**.
+This project is experimental; always check important results.
+
+Powered by [Midscene](https://github.com/web-infra-dev/midscene).
 
 [Website & video demo](https://tapilot.lifeos.md)
 
@@ -24,21 +29,6 @@ This is an experimental project; model decisions and device behavior can fail.
 [Watch the English demo](https://www.youtube.com/watch?v=TwuMuZ59yog) · Approximately 78 seconds.
 
 [Download video](https://tapilot.lifeos.md/videos/tapilot-en.mp4)
-
-## How the visual loop works
-
-![Visual action and verification loop](artwork/visual-loop.en.svg)
-
-Midscene supplies the visual planning, locating, action execution and reports.
-Tapilot supplies the native Android UI, device adapter, model transport, saved
-conversations and task lifecycle. The embedded Node.js worker runs on the phone;
-model inference uses the configured remote provider. **On-device orchestration
-does not mean offline inference.**
-
-Accessibility is the device execution layer, not the visual locator. Native text
-editing can use the focused editable accessibility node, and app launch uses
-Android's launcher catalogue. Custom-rendered inputs and protected screens can
-therefore remain unsupported even when their pixels are visible.
 
 ## What you can do
 
@@ -58,6 +48,17 @@ therefore remain unsupported even when their pixels are visible.
   connects a paired computer to the phone over pinned TLS. Wireless use requires
   an unlocked phone and exclusive control, without ADB or USB.
 
+### Take over a task
+
+Select **Take over** while a task runs. Wait for the stopped confirmation before
+using the phone; an action already dispatched may still finish while stopping.
+The handoff card offers **Return to app** and **Continue task**. Continuing keeps
+the saved task context and asks the agent to inspect the current screen before
+acting. It does not resend the original task as a fresh request. A saved composer
+draft is retained. A task waiting for your answer also offers these controls.
+Leaving the chat after a confirmed handoff does not restart the task.
+Tasks stopped by opening the floating conversation panel also show the handoff card.
+
 ## Try it
 
 Requires an **arm64 Android 11+** phone and a supported vision model. There is no
@@ -65,7 +66,7 @@ verified public release pipeline yet; build a development APK using the steps be
 
 1. Install the APK, open Tapilot and enable **Tapilot device control** in Android
    Accessibility settings.
-2. In Tapilot settings, configure an HTTPS vision-model API, or choose the existing
+2. In Tapilot settings, configure an HTTP or HTTPS vision-model API, or choose the existing
    ChatGPT (SIWC) connection option where available. Fill credentials on the phone.
 3. Start with a simple visible task, such as opening Calculator and computing 12 × 8. Inspect
    the actual screen and execution record before relying on the reply.
@@ -73,6 +74,20 @@ verified public release pipeline yet; build a development APK using the steps be
 The composer offers automatic execution (YOLO), confirmation for critical
 operations, or confirmation for every phone operation. **New installations default
 to YOLO.** Choose the confirmation mode appropriate to your task before sending it.
+
+The first-task guide shows whether a model is configured and device control is
+connected. It can fill a Calculator example into an empty composer; you review
+and send it yourself. Existing drafts and attachments are retained. Configuration
+is not a successful connection test: the task exercises the model, screenshots
+and actions. The guide stays available after a failure, and is dismissed after a
+verified phone task succeeds or when you choose Skip guide.
+
+For a self-hosted model on your LAN, use its OpenAI-compatible base URL, such as
+`http://192.168.1.100:8000/v1`, and a supported vision model. The address must be
+reachable from the phone; `localhost` refers to the phone itself. The app still
+requires an API key; if your server does not require authentication, enter a
+non-empty placeholder such as `local`. HTTP sends API keys, messages and screenshots
+without encryption. Use it only on a trusted network; prefer HTTPS otherwise.
 
 ### Set up voice input (optional)
 
@@ -90,6 +105,21 @@ console and official setup guide:
   [Official guide](https://developers.deepgram.com/docs/create-additional-api-keys).
 
 Paste the key into the app and select **Check connection** to save and verify it.
+
+## How the visual loop works
+
+![Visual action and verification loop](artwork/visual-loop.en.svg)
+
+Midscene supplies the visual planning, locating, action execution and reports.
+Tapilot supplies the native Android UI, device adapter, model transport, saved
+conversations and task lifecycle. The embedded Node.js worker runs on the phone;
+model inference uses the configured remote provider. **On-device orchestration
+does not mean offline inference.**
+
+Accessibility is the device execution layer, not the visual locator. Native text
+editing can use the focused editable accessibility node, and app launch uses
+Android's launcher catalogue. Custom-rendered inputs and protected screens can
+therefore remain unsupported even when their pixels are visible.
 
 ## Build and develop
 
@@ -124,6 +154,10 @@ Run `pnpm check` for the full local test/build gate and `pnpm check:security` fo
 dependency audits. Device-backed E2E is separate; 23 authored cases do not imply
 23 verified passes. See the [E2E guide and evidence](tests/midscene/README.md) and
 [contribution guide](CONTRIBUTING.md).
+
+If the execution process exits before producing a report, Tapilot shows its exit
+code and available failure diagnostic. An expired preloaded process is restarted
+only before any test or device RPC has begun; a running phone task is not replayed.
 
 Historical device runs do not establish a pass for the latest source.
 
