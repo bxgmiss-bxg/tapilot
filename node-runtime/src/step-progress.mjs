@@ -16,7 +16,7 @@ export function createStepProgress(emit, scope) {
       const signature = JSON.stringify(step);
       if (seen.get(id) === signature) continue;
       seen.set(id, signature);
-      emit({ type: 'execution.step', ...step });
+      emit({ type: 'execution.step', timestamp: new Date().toISOString(), ...step });
     }
   };
 }
@@ -24,13 +24,13 @@ export function createStepProgress(emit, scope) {
 /** Direct workflow nodes bypass Agent snapshots but still have an actual lifecycle. */
 export async function runDirectStep(action, execute, emit, target = '') {
   const step = { type: 'execution.step', id: randomUUID(), action, target };
-  emit({ ...step, status: 'running' });
+  emit({ ...step, timestamp: new Date().toISOString(), status: 'running' });
   try {
     const result = await execute();
-    emit({ ...step, status: 'finished' });
+    emit({ ...step, timestamp: new Date().toISOString(), status: 'finished' });
     return result;
   } catch (error) {
-    emit({ ...step, status: error?.name === 'AbortError' ? 'cancelled' : 'failed' });
+    emit({ ...step, timestamp: new Date().toISOString(), status: error?.name === 'AbortError' ? 'cancelled' : 'failed' });
     throw error;
   }
 }

@@ -13,6 +13,7 @@ test('emits ordered actual steps and updates status without duplicate snapshots'
   update('', { tasks: [task] });
   task.status = 'finished';
   update('', { tasks: [task] });
+  for (const event of events) assert.equal(new Date(event.timestamp).toISOString(), event.timestamp);
   assert.deepEqual(events.map(e => [e.id, e.action, e.target, e.status]), [
     ['run:1', 'Tap', 'Equals button', 'running'], ['run:1', 'Tap', 'Equals button', 'finished'],
   ]);
@@ -35,6 +36,7 @@ test('direct workflow steps emit completion or failure and preserve the original
   assert.equal(await runDirectStep('Launch', async () => 42, e => events.push(e)), 42);
   const failure = new Error('private native diagnostic');
   await assert.rejects(runDirectStep('AndroidBackButton', async () => { throw failure; }, e => events.push(e)), e => e === failure);
+  for (const event of events) assert.equal(new Date(event.timestamp).toISOString(), event.timestamp);
   assert.deepEqual(events.map(e => e.status), ['running', 'finished', 'running', 'failed']);
   assert.equal(events[0].id, events[1].id);
   assert.notEqual(events[0].id, events[2].id);
