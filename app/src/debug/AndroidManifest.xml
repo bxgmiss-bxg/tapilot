@@ -1,6 +1,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <application>
+        <provider android:name=".shell.ShellHandoffProvider"
+            android:authorities="${applicationId}.shell-handoff"
+            android:exported="true" android:permission="android.permission.DUMP" />
         <activity android:name=".experiment.BackgroundDisplayActivity"
             android:exported="true" android:permission="android.permission.DUMP" />
         <receiver android:name=".performance.PerformanceExperimentReceiver"

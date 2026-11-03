@@ -1,20 +1,17 @@
 package lifeos.md.tapilot.experiment
 
-import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.GestureDescription
 import android.app.Activity
-import android.app.ActivityManager
-import android.app.ActivityOptions
 import android.app.Presentation
 import android.content.ComponentName
-import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.graphics.Path
+import android.graphics.PathMeasure
+import android.graphics.RectF
+import java.util.concurrent.Executors
+import lifeos.md.tapilot.shell.ShellSession
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
-import android.hardware.display.VirtualDisplay
 import android.media.ImageReader
 import android.os.Handler
 import android.os.SystemClock
@@ -25,13 +22,13 @@ import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
 import lifeos.md.tapilot.TaskExecutionTracker
-import lifeos.md.tapilot.accessibility.MidsceneAccessibilityService
 import lifeos.md.tapilot.wireless.DeviceControlLease
 
 /** Debug-only experiment. Never routes production device commands or falls back to display 0. */
 internal class BackgroundDisplayProbe(private val host: Activity, private val changed: () -> Unit) : AutoCloseable {
     private val handler = Handler(Looper.getMainLooper())
-    private var display: VirtualDisplay? = null
+    private var display: Display? = null
+    private val inputWorker = Executors.newSingleThreadExecutor()
     private var reader: ImageReader? = null
     private var presentation: Presentation? = null
     private var target: Button? = null
@@ -42,7 +39,7 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
     var frames = 0; private set
     var taps = 0; private set
     var status = "Off"; private set
-    val displayId get() = display?.display?.displayId
+    val displayId get() = display?.displayId
     val active get() = display != null
     var livePreview = false
     private var lastSnapshotAt = 0L
@@ -50,6 +47,7 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
     private var snapshotRequested = true
 
     fun start() {
+        ShellSession.requireHelper()
         check(!active)
         check(!TaskExecutionTracker.isActive) { "Stop the current task before starting this experiment" }
         DeviceControlLease.acquire(OWNER)
@@ -85,11 +83,13 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
                     handler.postDelayed(capture, delay)
                 }
             }, handler)
-            display = host.getSystemService(DisplayManager::class.java).createVirtualDisplay(
-                "Tapilot optional display probe", WIDTH, HEIGHT, 160, images.surface,
-                DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION,
-            ) ?: error("Virtual display creation returned no display")
-            check(displayId != Display.DEFAULT_DISPLAY) { "Refusing to target the primary display" }
+            val id = ShellSession.requireHelper().create(images.surface, WIDTH, HEIGHT)
+            check(id > 0) { "Refusing to target the primary display" }
+            display = host.getSystemService(DisplayManager::class.java).getDisplay(id)
+            if (display == null) {
+                ShellSession.requireHelper().release(id)
+                error("Shell display did not become available")
+            }
             showFixture()
             status = "Display $displayId created; waiting for rendered pixels"
             handler.postDelayed(timeout, 120_000)
@@ -98,7 +98,7 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
     }
 
     private fun showFixture() {
-        val panel = Presentation(host, checkNotNull(display).display)
+        val panel = Presentation(host, checkNotNull(display))
         presentation = panel
         val layout = LinearLayout(panel.context).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
@@ -129,42 +129,40 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
         val id = checkNotNull(displayId) { "Start the experiment first" }
         check(id != Display.DEFAULT_DISPLAY)
         check(!gesturePending) { "Wait for the previous gesture result" }
-        val service = checkNotNull(MidsceneAccessibilityService.current()) { "Enable this test app's device control first" }
-        val gesture = GestureDescription.Builder().setDisplayId(id)
-            .addStroke(GestureDescription.StrokeDescription(path, 0, duration.coerceIn(1, 5000))).build()
+        val helper = ShellSession.requireHelper()
+        val measure = PathMeasure(path, false)
+        val points = if (measure.length == 0f) {
+            val bounds = RectF(); path.computeBounds(bounds, true)
+            floatArrayOf(bounds.left, bounds.top, bounds.left, bounds.top)
+        } else FloatArray(64).also { out ->
+            val point = FloatArray(2)
+            for (i in 0 until 32) {
+                check(measure.getPosTan(measure.length * i / 31, point, null))
+                out[i * 2] = point[0]; out[i * 2 + 1] = point[1]
+            }
+        }
         val run = generation
         gesturePending = true
-        val accepted = try { service.dispatchGesture(gesture, object : AccessibilityService.GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription) {
-                if (run != generation) return
-                gesturePending = false
-                snapshotRequested = true
-                status = "Gesture dispatched to display $id; fixture taps observed: $taps"
-                changed()
+        status = "Waiting for shell input result"; changed()
+        inputWorker.execute {
+            val result = runCatching { check(helper.gesture(id, points, duration.coerceIn(1, 5000))) }
+            handler.post {
+                if (run == generation) {
+                    gesturePending = false; snapshotRequested = true
+                    status = if (result.isSuccess) "Shell input completed on display $id; fixture taps observed: $taps"
+                        else "Secondary-display input failed; no primary-screen fallback"
+                    changed()
+                }
             }
-            override fun onCancelled(gestureDescription: GestureDescription) {
-                if (run != generation) return
-                gesturePending = false
-                status = "Secondary-display gesture cancelled; no primary-screen fallback"; changed()
-            }
-        }, handler) } catch (failure: Exception) { gesturePending = false; throw failure }
-        if (!accepted) gesturePending = false
-        check(accepted) { "System refused the secondary-display gesture" }
-        status = "Waiting for gesture result"; changed()
+        }
     }
 
     fun launch(component: ComponentName) {
         val id = checkNotNull(displayId) { "Start the experiment first" }
-        check(id != Display.DEFAULT_DISPLAY)
-        check(host.packageManager.hasSystemFeature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS)) {
-            "Device does not advertise secondary-display activities; launch refused"
-        }
-        val intent = Intent.makeMainActivity(component).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
-        check(host.getSystemService(ActivityManager::class.java).isActivityStartAllowedOnDisplay(host, id, intent)) { "System disallows this app on the experiment display" }
-        host.startActivity(intent, ActivityOptions.makeBasic().setLaunchDisplayId(id).toBundle())
+        ShellSession.requireHelper().launch(id, component.flattenToString())
         presentation?.dismiss(); presentation = null; target = null
         snapshotRequested = true
-        status = "Launch requested on display $id. Inspect preview and main screen; success is not established."
+        status = "Shell launch requested on display $id. Inspect the actual screen to verify."
         changed()
     }
 
@@ -181,7 +179,7 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
         livePreview = false; gesturePending = false
         handler.removeCallbacksAndMessages(null)
         presentation?.dismiss(); presentation = null; target = null
-        display?.release(); display = null
+        displayId?.let { id -> runCatching { ShellSession.requireHelper().release(id) } }; display = null
         reader?.setOnImageAvailableListener(null, null)
         reader?.close(); reader = null
         val old = bitmap; bitmap = null
@@ -191,6 +189,8 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
         changed()
         old?.recycle()
     }
+
+    fun dispose() { close(); inputWorker.shutdownNow() }
 
     companion object {
         private const val OWNER = "background-display-probe"
