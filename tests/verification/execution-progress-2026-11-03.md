@@ -26,3 +26,7 @@ The subsequent handoff continuation made a fresh capture, but the model request 
 ## Automated checks
 
 The final runtime bundle passed 135 tests. The integrated Android checks passed 408 tests with one existing opt-in live speech test skipped; beta lint and isolated Debug APK packaging passed. No changes were merged into main or released as part of this acceptance.
+
+## Later handoff retry
+
+A subsequent Chinese handoff retry successfully verified the manually completed 23 × 7 = 161 result. Its resumed ledger contained Query, Plan, Query with no repeated calculator taps. The initial network-failed attempt above remains a separate failed attempt. See [handoff acceptance](https://github.com/tapilot-ai/tapilot/blob/feat/explicit-task-handoff-20261103/tests/verification/handoff-2026-11-03.md) for the complete sequence.
