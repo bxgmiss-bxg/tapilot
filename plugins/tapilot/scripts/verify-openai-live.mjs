@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, readdir, rm, cp } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, rm, cp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import sharp from 'sharp';
@@ -79,18 +79,6 @@ try {
     await cp(reports, join(output, 'reports'), { recursive: true }).catch(error => {
       if (error.code !== 'ENOENT') throw error;
     });
-    const files = await readdir(join(output, 'reports')).catch(error => {
-      if (error.code === 'ENOENT') return [];
-      throw error;
-    });
-    const links = files.filter(name => /^tapilot-[a-z-]+\.html$/.test(name)).sort()
-      .map(name => `<li><a href="reports/${name}">${name}</a></li>`).join('\n');
-    await writeFile(join(output, 'index.html'), `<!doctype html>
-<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
-<title>Tapilot Terra 6.1 CI reports</title>
-<body><h1>Tapilot Terra 6.1 CI reports</h1>
-<p>Result: ${evidence.passed ? 'passed' : 'failed'}. Real OpenAI API; synthetic phone screenshots.</p>
-<p>The negative-verdict report is expected to contain a failed assertion.</p>
-<ul>${links}</ul><a href="result.json">Machine-readable results</a></body></html>`);
+
   } finally { await rm(root, { recursive: true, force: true }); }
 }

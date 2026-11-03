@@ -43,33 +43,6 @@ jobs:
           path: build/midscene-openai-live/
           if-no-files-found: warn
           retention-days: 7
-      - name: Prepare isolated Wrangler directory
-        if: ${{ always() && (steps.terra-test.outcome == 'success' || steps.terra-test.outcome == 'failure') && hashFiles('build/midscene-openai-live/index.html') != '' }}
-        run: |
-          mkdir -p .cloudflare-deploy
-          echo '{"private":true}' > .cloudflare-deploy/package.json
-      - name: Publish Terra reports to Cloudflare Pages
-        id: terra-pages
-        if: ${{ always() && (steps.terra-test.outcome == 'success' || steps.terra-test.outcome == 'failure') && hashFiles('build/midscene-openai-live/index.html') != '' }}
-        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4.151.1'
-          packageManager: npm
-          workingDirectory: .cloudflare-deploy
-          command: pages deploy ../build/midscene-openai-live --project-name=tapilot-terra-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
-      - name: Link online Terra report
-        if: ${{ always() && steps.terra-pages.outcome == 'success' }}
-        env:
-          REPORT_URL: ${{ steps.terra-pages.outputs.deployment-url }}
-          TEST_OUTCOME: ${{ steps.terra-test.outcome }}
-        run: |
-          {
-            echo '### Midscene Terra 6.1 report'
-            echo "[Open interactive HTML reports]($REPORT_URL)"
-            echo "Revision: $GITHUB_SHA; test outcome: $TEST_OUTCOME"
-          } >> "$GITHUB_STEP_SUMMARY"
   apk-midscene:
     name: APK install and Midscene smoke
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
@@ -191,7 +164,7 @@ jobs:
         if: ${{ always() && steps.apk-pages.outcome == 'success' }}
         env:
           REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
-        run: echo "[APK install and Midscene smoke report]($REPORT_URL) — $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+        run: echo "[Open the Midscene Test report ↗]($REPORT_URL) — all APK cases · $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e

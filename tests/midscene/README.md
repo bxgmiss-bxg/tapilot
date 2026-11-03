@@ -433,7 +433,10 @@ independently check the retained text and attachment. The fresh emulator contain
 personal accounts. Screenshots and reports are
 published to the dedicated `tapilot-apk-reports` Cloudflare Pages project, with
 a per-run preview URL in the CI Summary. Pages publication follows delinoio/apps#893; the action's separate Workers
-publisher is disabled. Both this project and `tapilot-terra-reports` require the configured Pages-edit token. Failed cases
+publisher is disabled. This project requires the configured Pages-edit token.
+The Summary links directly to the unchanged native report containing all selected
+APK cases. The separate API integration check retains artifact diagnostics only;
+it does not publish an HTML index or a second online report entry. Failed cases
 remain failed even when report publication succeeds. PR runs use neither the
 model nor Cloudflare token. APK identity, logs and visual evidence remain
 available as the `apk-midscene-<sha>` artifact for seven days.
