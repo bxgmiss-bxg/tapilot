@@ -42,3 +42,19 @@ An initial packaging attempt lacked a current runtime asset after switching bran
 Removed the title bar, footer and colored window chrome. The capture now fills a rounded, borderless surface with a small drag handle and a translucent close control. Both controls retain 48 dp touch targets. Gesture cancellation uses a brief message; detailed probe status remains on the experiment page.
 
 Validation: `assembleDebug -Pe2eVerification` and `lintDebug` passed. The updated isolated APK was installed successfully on the same OPPO. Visual verification is pending: the device remained on its lock screen, and wake/swipe attempts produced black or empty captures. Earlier screenshots above show the previous presentation, not this revision.
+
+
+### Android 15 emulator visual verification
+
+The borderless revision was verified separately on a fresh Pixel 7 / Android 15 ARM64 emulator using the isolated Debug package. This is emulator evidence, not OPPO evidence.
+
+1. Start the secondary-display experiment and open the floating preview.
+2. Return to Home: the actual fixture capture remains visible without a title bar, footer or outer border.
+3. Drag the small top handle: the window moves while retaining its captured content and close control.
+4. The Settings app hides the overlay; returning Home shows it again. Do not assume overlays are visible over every system or protected screen.
+5. Close the test and shut down the isolated emulator to release local resources.
+
+The light-blue fill belongs to the fixture itself. This visual check does not establish secondary-display input support; device control was not enabled in this emulator.
+
+- [Borderless preview over Home](floating-display-2026-11-03/emulator-borderless-home.png)
+- [Preview after dragging](floating-display-2026-11-03/emulator-borderless-moved.png)
