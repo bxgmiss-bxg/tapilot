@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { getInstallationGuide } from "./installation.mjs";
 import { ChatGPTAuth } from "./midscene/chatgpt-auth.mjs";
+import { openAIConfig } from "./midscene/openai-config.mjs";
 const text = (value) => ({
   content: [{ type: "text", text: JSON.stringify(value) }],
   structuredContent: value,
@@ -80,6 +81,12 @@ export class MidsceneController {
   }
   isAdmin(action) {
     return admin.has(action);
+  }
+  async authorizationStatus() {
+    const config = await openAIConfig(this.root);
+    return config
+      ? { authorized: true, provider: "openai_api_key", model: config.model }
+      : this.auth.status();
   }
   async mode() {
     try {
@@ -160,9 +167,10 @@ export class MidsceneController {
     if (action === "setup") return text(getInstallationGuide());
     if (action === "status") {
       const mode = await this.mode();
-      const status = await this.auth.status();
+      const status = await this.authorizationStatus();
       return text({
         mode, active: !!this.active, authorized: status.authorized,
+        ...(status.provider ? { provider: status.provider, model: status.model } : {}),
         onboarding_required: !existsSync(join(this.root, "midscene.json")),
         ...(mode === "ai" ? this.authGuidance(mode, status) : {
           needs_user_input: false,
@@ -233,18 +241,25 @@ export class MidsceneController {
       });
     }
     if (action === "auth_status") {
-      const status = await this.auth.status();
+      const status = await this.authorizationStatus();
       return text({ ...status, ...this.authGuidance(await this.mode(), status) });
     }
     if (action === "auth_cancel") return text(await this.auth.cancel());
-    if (action === "auth_logout") return text(await this.auth.logout());
-    if (action === "models") return text({ models: await this.auth.models() });
+    if (action === "auth_logout") {
+      if (await openAIConfig(this.root))
+        throw new Error("Remove local openai.json to disable API key authorization");
+      return text(await this.auth.logout());
+    }
+    if (action === "models") {
+      const config = await openAIConfig(this.root);
+      return text({ models: config ? [{ slug: config.model }] : await this.auth.models() });
+    }
     if (action === "auth_login") {
       if ((await this.mode()) !== "ai")
         throw new Error(
           "Select ai mode only after user consent before signing in",
         );
-      const status = await this.auth.status();
+      const status = await this.authorizationStatus();
       if (status.authorized) return text({ ...status, ...this.authGuidance("ai", status) });
       if (status.login?.status === "pending") return text({ ...status.login, ...this.authGuidance("ai", status) });
       return new Promise((resolve, reject) => {
@@ -299,7 +314,7 @@ export class MidsceneController {
       throw new Error("Midscene is off; use original tools or enable steps");
     const ai = ["act", "assert", "wait"].includes(args.action);
     if (ai) {
-      const status = await this.auth.status();
+      const status = await this.authorizationStatus();
       if (mode !== "ai" || !status.authorized)
         return { ...text(this.authGuidance(mode, status)), isError: true };
     }

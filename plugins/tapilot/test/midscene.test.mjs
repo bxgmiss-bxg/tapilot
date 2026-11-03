@@ -260,6 +260,7 @@ test("removed plugin worker tells the host to reload before touching the phone",
   const source = (await readFile(new URL('../server/midscene.mjs', import.meta.url), 'utf8'))
     .replace("'../ui/i18n.mjs'", JSON.stringify(new URL('../ui/i18n.mjs', import.meta.url).href))
     .replace('"./midscene/chatgpt-auth.mjs"', JSON.stringify(new URL('../server/midscene/chatgpt-auth.mjs', import.meta.url).href))
+    .replace('"./midscene/openai-config.mjs"', JSON.stringify(new URL('../server/midscene/openai-config.mjs', import.meta.url).href))
     .replace('"./state-paths.mjs"', JSON.stringify(new URL('../server/state-paths.mjs', import.meta.url).href))
     .replace('"./installation.mjs"', JSON.stringify(new URL('../server/installation.mjs', import.meta.url).href));
   const modulePath = join(original.root, 'removed-version.mjs');
@@ -328,4 +329,23 @@ test('unified status is nonblocking and preserves saved mode and pending authori
   c.active=true;
   assert.equal(metadata(await c.configure({action:'status'})).next_action,'wait_or_pause');
   assert.equal(calls.length,0);
+});
+
+test('explicit API key model works without OAuth and never exposes the key', async (t) => {
+  const { controller: c } = await fixture(t);
+  const apiKeyFile = join(c.root, 'key.txt');
+  await writeFile(apiKeyFile, 'sk-test-secret\n', { mode: 0o600 });
+  await writeFile(join(c.root, 'openai.json'), JSON.stringify({ model: 'gpt-6.1-terra', apiKeyFile }));
+  await c.configure({ action: 'settings', mode: 'ai' });
+  const status = metadata(await c.configure({ action: 'auth_status' }));
+  assert.equal(status.authorized, true);
+  assert.equal(status.provider, 'openai_api_key');
+  assert.equal(status.model, 'gpt-6.1-terra');
+  assert.equal(JSON.stringify(status).includes('sk-test-secret'), false);
+  assert.deepEqual(metadata(await c.configure({ action: 'models' })).models, [{ slug: 'gpt-6.1-terra' }]);
+  await assert.rejects(c.configure({ action: 'auth_logout' }), /openai.json/);
+  await rm(apiKeyFile);
+  await assert.rejects(c.configure({ action: 'auth_status' }), /Cannot read/);
+  await writeFile(join(c.root, 'openai.json'), '{');
+  await assert.rejects(c.configure({ action: 'auth_status' }), /Invalid local/);
 });

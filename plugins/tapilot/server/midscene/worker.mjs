@@ -1,6 +1,7 @@
 import { settledFrame } from "./settled-frame.mjs";
 import { performance } from "node:perf_hooks";
 import { defaultChatGPTModel } from "./model-selection.mjs";
+import { openAIConfig } from "./openai-config.mjs";
 import { WirelessDevice } from "./device.mjs";
 import { ActionReport } from "./action-report.mjs";
 import { randomUUID } from "node:crypto";
@@ -64,8 +65,9 @@ async function run(request) {
       const { createChatGPTClient } = await import("./chatgpt-client.mjs");
       const { TapProgressGuard } = await import("./ai-budget.mjs");
       const { compactPlanningContext } = await import("./compact-planning.mjs");
-      const auth = new ChatGPTAuth(`${process.cwd()}/chatgpt`);
-      const model = defaultChatGPTModel(await auth.models());
+      const config = await openAIConfig(process.cwd());
+      const auth = config ?? new ChatGPTAuth(`${process.cwd()}/chatgpt`);
+      const model = config?.model ?? defaultChatGPTModel(await auth.models());
       if (!model) throw new Error("no_compatible_model");
       const controller = new AbortController();
       timer = setTimeout(
@@ -133,7 +135,7 @@ async function run(request) {
       result = {
         ok: true,
         action_complete: true,
-        decision_source: "chatgpt_oauth",
+        decision_source: config ? "openai_api_key" : "chatgpt_oauth",
         model,
         ...(action === "act"
           ? {
