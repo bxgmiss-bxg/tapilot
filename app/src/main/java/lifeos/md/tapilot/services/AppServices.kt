@@ -34,6 +34,7 @@ class AppServices(
     context: Context,
     val device: DeviceService,
     private val onProgress: (String) -> Unit = {},
+    private val onStep: (String, JSONObject) -> Unit = { _, _ -> },
     private val onLanguageChanged: (String) -> Unit = {},
     private val onThemeChanged: (String) -> Unit = {},
     private val onPickAttachment: (String, (Result<JSONObject?>) -> Unit) -> Unit = { _, callback ->
@@ -80,6 +81,7 @@ class AppServices(
         reportRepository,
         nodeRuntimeSupervisor,
         device = device,
+        onStep = { session, step -> handler.post { if (!closed) onStep(session, step) } },
         onProgress = { method -> handler.post {
             onProgress(method)
         } },

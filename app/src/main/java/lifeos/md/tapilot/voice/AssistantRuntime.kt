@@ -58,6 +58,7 @@ class AssistantRuntime(context: Context) {
     private val conversationDevice = ConversationDeviceControl(device)
     val bridge = lifeos.md.tapilot.services.AppServices(context = context, device = conversationDevice,
         onProgress = { coordinator.phoneProgress(it) },
+        onStep = { session, step -> coordinator.phoneStep(session, step) },
         onPickAttachment = { kind, callback -> picker?.invoke(kind, callback)
             ?: callback(Result.failure(IllegalStateException("Open Tapilot to select an attachment"))) })
     val coordinator: NativeConversationCoordinator = NativeConversationCoordinator(context, bridge,

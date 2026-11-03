@@ -36,6 +36,7 @@ const runtimeFiles = [
   'android.config.mjs',
   'assistant-context.mjs',
   'action-progress.mjs',
+  'step-progress.mjs',
   'execution-policy.mjs',
 ];
 const sourceManifest = JSON.parse(
