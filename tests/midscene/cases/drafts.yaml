@@ -24,6 +24,11 @@ cases:
           Tap Retry on the existing RETRY-BASELINE assistant reply and confirm Run.
           Do not press the composer Send button. Stop interacting after the retry starts.
       - task.waitForIdle: {}
+      - aiWaitFor:
+          prompt: No transient Android toast or completion overlay covers the Tapilot composer.
+          options:
+            timeoutMs: 10000
+            checkIntervalMs: 1000
       - aiAssert: >-
           The retried task completed with RETRY-BASELINE. Its user message has no attachment
           link. The composer still contains the unsent text DRAFT-KEEP-UNSENT and the
