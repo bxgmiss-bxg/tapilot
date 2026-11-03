@@ -103,8 +103,8 @@ This builds the selected source, installs `lifeos.md.tapilot.e2everify` without
 clearing its data, records the commit and APK SHA-256 alongside the report, verifies
 the host model, and runs only `cases/smoke.yaml`. It does not install over the
 personal app or provision phone model credentials. Live/resilience cases remain
-outside this workflow. The bundled native runtime requires ARM64; the upstream
-x86_64 Android emulator job cannot replace this device for native task coverage.
+outside this dedicated-device workflow. The separate hosted workflow below adds
+a verification-only x86_64 runtime; it does not replace physical-device validation.
 
 ## Cases and selection
 
@@ -406,17 +406,28 @@ an enabled Wi-Fi switch is insufficient. This is a system-connectivity precondit
 not proof that the configured model endpoint is reachable; the final real task
 still determines recovery success. The wait is bounded to 60 seconds.
 
-### Automatic APK smoke on hosted CI
+### Automatic APK core flows on hosted CI
 
 Every main push and trusted manual dispatch also runs `APK install and Midscene
-smoke` on an Android 35 Google APIs x86_64 emulator. It builds the actual debug
-verification APK with the bundled ARM64 runtime, installs it with ADB, records
-the source SHA, APK SHA-256 and package metadata, and runs five `cases/smoke.yaml` cases plus `DRAFT-02` (restart with an unsent
-attachment) and `DRAFT-03` (Android share preserves the draft attachment), using `gpt-6.1-terra` through the official Responses API.
-The Google APIs image provides ARM ABI translation for installation; this job
-covers the installed application's UI, not ARM64 native-task execution or
-physical-device services. The separate dedicated-device workflow remains for
-hardware validation.
+core flows` on an Android 35 Google APIs x86_64 emulator. It builds and installs
+the verification APK, records its source SHA and APK SHA-256, and runs eleven
+cases: UI-01 through UI-05, DRAFT-02, DRAFT-03, CHAT-01, DRAFT-01, CORE-01 and CORE-02.
+The observer uses `gpt-6.1-terra` through the official Responses API. The installed
+app uses the same official model for real multi-turn answers, historical retries,
+Settings operations with replay evidence, conversation history, and cancellation
+followed by a new request. The observer never performs the requested phone task.
+
+A checksum-pinned x86_64 Termux Node runtime is included only in the debug
+verification APK; normal Beta/release packaging retains ARM64 only. This lets
+native tasks run in the emulator without relying on ARM executable translation.
+Emulator success does not establish physical-device service acceptance.
+
+Before screenshots, a shell-permission-protected debug receiver configures only
+`lifeos.md.tapilot.e2everify`. The key travels through ADB stdin into a private
+short-lived file, is saved through the product's encrypted credential store, and
+is deleted after setup. The harness refuses physical devices and enables the
+verification app's accessibility service on its disposable emulator. No secrets
+are entered through UI prompts or included in test YAML.
 
 The pinned `web-infra-dev/midscene-action` executes the emulator/install/test command,
 uploads the native artifacts, and renders each case result in the job Summary.
@@ -425,8 +436,8 @@ Run the configured project without a positional directory so the project-relativ
 `cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
 readiness and cleanup; its exit status propagates through the action. The hosted
 job explicitly opts into the resilience profile but selects only
-`smoke,draft-restart,share-draft`, so it never runs network faults or phone-side
-model tasks. All seven cases use zero retries. The disposable verification app is pre-granted
+`smoke,draft-restart,share-draft,ci-core`, so it runs the four core cases without
+network faults. All eleven cases use zero retries. The disposable verification app is pre-granted
 notification permission before screenshots; microphone and other permissions are
 not granted. Restart assertions wait for the chat to become visible, then
 independently check the retained text and attachment. The fresh emulator contains no

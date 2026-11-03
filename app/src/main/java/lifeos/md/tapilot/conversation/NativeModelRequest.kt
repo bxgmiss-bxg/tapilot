@@ -13,9 +13,12 @@ object NativeModelRequest {
         val chatMessages = JSONArray(messages.toString())
         for (i in 0 until chatMessages.length()) chatMessages.getJSONObject(i).apply { remove("tapilotResponsesOutput"); remove("tapilotResponsesAccount") }
         val body = JSONObject().put("model", model.getString("modelName")).put("messages", chatMessages)
-            .put("tools", tools).put("tool_choice", "auto").put("stream", false).put("max_tokens", 2048)
+            .put("tools", tools).put("tool_choice", "auto").put("stream", false)
         // DashScope hybrid Qwen models default to reasoning; use a fast, non-streaming reply.
         val host = URI(endpoint).host
+        val modernOpenAi = host == "api.openai.com" &&
+            model.getString("modelName").matches(Regex("(?:gpt-[5-9].*|o[1-9].*)"))
+        body.put(if (modernOpenAi) "max_completion_tokens" else "max_tokens", 2048)
         if ((host == "dashscope.aliyuncs.com" || host.endsWith(".maas.aliyuncs.com")) && model.getString("modelName").startsWith("qwen3"))
             body.put("enable_thinking", false)
         return JSONObject().put("url", endpoint).put("method", "POST")

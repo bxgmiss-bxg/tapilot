@@ -7,6 +7,16 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeModelRequestTest {
+    @Test fun terraUsesCompletionBudgetOnlyAtOfficialEndpoint() {
+        val profile = ModelProfiles.defaults("openai").put("modelName", "gpt-6.1-terra")
+        fun body() = JSONObject(String(Base64.getDecoder().decode(
+            NativeModelRequest.params(profile, "test-key", JSONArray()).getString("bodyBase64"))))
+        assertEquals(2048, body().getInt("max_completion_tokens"))
+        assertFalse(body().has("max_tokens"))
+        profile.put("baseUrl", "https://example.org/v1")
+        assertEquals(2048, body().getInt("max_tokens"))
+        assertFalse(body().has("max_completion_tokens"))
+    }
     @Test fun switchingFromChatGptDoesNotForwardOpaqueResponsesStateToOtherProviders() {
         val messages = JSONArray().put(JSONObject().put("role", "assistant").put("content", "done")
             .put("tapilotResponsesAccount", "account").put("tapilotResponsesOutput", JSONArray().put("opaque")))

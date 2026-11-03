@@ -16,5 +16,6 @@ adb -s "$serial" shell svc power stayon true
 adb -s "$serial" shell input keyevent KEYCODE_WAKEUP
 adb -s "$serial" shell wm dismiss-keyguard
 trap 'adb -s "$serial" logcat -d > build/apk-midscene/logcat.txt; adb -s "$serial" exec-out screencap -p > build/apk-midscene/final.png' EXIT
+node scripts/setup-apk-ci-model.mjs
 npm --prefix tests/midscene run check:model
 npm --prefix tests/midscene run test:resilience

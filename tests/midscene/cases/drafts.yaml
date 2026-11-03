@@ -2,7 +2,7 @@ afterEach:
   - fixture.restore: {}
 cases:
   - name: DRAFT-01 Retry uses the original message while preserving an unrelated draft
-    tags: [live, attachments, retry-draft]
+    tags: [live, attachments, retry-draft, ci-core]
     steps:
       - app.open: {}
       - fixture.attachment: {}
