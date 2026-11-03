@@ -420,8 +420,9 @@ hardware validation.
 
 The pinned `web-infra-dev/midscene-action` executes the emulator/install/test command,
 uploads the native artifacts, and renders each case result in the job Summary.
-Its working directory is `tests/midscene/cases`, matching the native report root
-for directory-selected runs. The command owns emulator startup, bounded boot
+Its working directory is `tests/midscene`, matching the native report root.
+Run the configured project without a positional directory so the project-relative
+`cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
 readiness and cleanup; its exit status propagates through the action. The hosted
 job explicitly opts into the resilience profile but selects only
 `smoke,draft-restart,share-draft`, so it never runs network faults or phone-side

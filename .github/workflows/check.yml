@@ -140,9 +140,8 @@ jobs:
           TAPILOT_E2E_SCREEN_INFO: wm
           MIDSCENE_REPORT_QUIET: 'true'
         with:
-          # File-selected Midscene runs write native results beneath cases/.
-          working-directory: tests/midscene/cases
-          command: bash ../../../scripts/run-apk-ci-emulator.sh
+          working-directory: tests/midscene
+          command: bash ../../scripts/run-apk-ci-emulator.sh
           artifact-name: midscene-apk-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: '7'
           # Pages publishing below matches delinoio/apps#893 and its token scope.
@@ -166,7 +165,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          reports=(tests/midscene/cases/midscene_run/report/midscene-e2e-*/index.html)
+          reports=(tests/midscene/midscene_run/report/midscene-e2e-*/index.html)
           if [ "${#reports[@]}" -ne 1 ]; then
             echo '::error::Expected exactly one APK smoke HTML report'
             exit 1
