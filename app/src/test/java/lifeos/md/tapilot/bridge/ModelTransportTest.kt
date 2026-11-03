@@ -63,7 +63,7 @@ class ModelTransportTest {
         }
     }
 
-    @Test fun `real truncated response reconnects with the same model payload`() {
+    @Test fun `direct HTTP endpoint reconnects after a truncated response with the same model payload`() {
         localServer().use { server ->
             server.soTimeout = 4000
             val bodies = mutableListOf<String>()
@@ -91,11 +91,11 @@ class ModelTransportTest {
                     }
                 } catch (error: Throwable) { serverError = error }
             }
-            val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false).addInterceptor { chain ->
-                chain.proceed(chain.request().newBuilder().url("http://127.0.0.1:${server.localPort}/completions").build())
-            }.build()
+            val client = OkHttpClient.Builder().proxy(Proxy.NO_PROXY).retryOnConnectionFailure(false).build()
             ModelTransport(client).use { transport ->
-                val result = execute(transport).getOrThrow()
+                // Pass HTTP through the production URL validation, without an interceptor rewrite.
+                val request = params().put("url", "http://127.0.0.1:${server.localPort}/completions")
+                val result = execute(transport, request).getOrThrow()
                 assertEquals(200, result.getInt("status"))
                 assertEquals("{}", String(Base64.getDecoder().decode(result.getString("bodyBase64"))))
             }
