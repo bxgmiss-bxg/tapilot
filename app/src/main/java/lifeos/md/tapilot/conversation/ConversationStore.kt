@@ -126,7 +126,8 @@ object ModelProfiles {
     }
     fun endpoint(base: String): String {
         val uri = java.net.URI(base.trim())
-        require(uri.scheme == "https" && !uri.host.isNullOrBlank() && uri.userInfo == null) { appText("请填写有效的 HTTPS API 地址", "Enter a valid HTTPS API URL") }
+        // Allow HTTP for local/self-hosted endpoints; cleartext traffic is enabled in the manifest.
+        require(uri.scheme in setOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null) { appText("请填写有效的 API 地址", "Enter a valid API URL") }
         val path = uri.path.orEmpty().trimEnd('/')
         val endpoint = when {
             path.endsWith("/responses") -> error(appText("对话 API 需要 chat/completions 接口，请填写兼容地址", "Conversation API requires chat/completions. Enter a compatible URL"))
