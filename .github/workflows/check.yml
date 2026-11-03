@@ -122,29 +122,31 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+      - name: Install emulator image
+        run: sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64'
       - name: Install APK and run real screen smoke tests with Terra
         id: apk-test
-        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
         env:
           MIDSCENE_MODEL_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
           MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
           MIDSCENE_MODEL_NAME: gpt-6.1-terra
           MIDSCENE_MODEL_FAMILY: gpt-6
           MIDSCENE_MODEL_PROTOCOL: openai-responses
-          MIDSCENE_INCLUDE_TAGS: smoke
+          MIDSCENE_INCLUDE_TAGS: smoke,draft-restart,share-draft
           MIDSCENE_EXCLUDE_TAGS: ''
           TAPILOT_E2E_DEVICE_ID: emulator-5554
           TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
           TAPILOT_E2E_SCREEN_INFO: wm
           MIDSCENE_REPORT_QUIET: 'true'
         with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          profile: pixel_5
-          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
-          disable-animations: true
-          script: bash scripts/run-apk-ci-smoke.sh
+          # File-selected Midscene runs write native results beneath cases/.
+          working-directory: tests/midscene/cases
+          command: bash ../../../scripts/run-apk-ci-emulator.sh
+          artifact-name: midscene-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: '7'
+          # Pages publishing below matches delinoio/apps#893 and its token scope.
+          publish-pages: 'false'
       - name: Preserve APK identity and visual evidence
         if: always()
         uses: actions/upload-artifact@v4

@@ -15,4 +15,4 @@ adb -s "$serial" shell input keyevent KEYCODE_WAKEUP
 adb -s "$serial" shell wm dismiss-keyguard
 trap 'adb -s "$serial" logcat -d > build/apk-midscene/logcat.txt; adb -s "$serial" exec-out screencap -p > build/apk-midscene/final.png' EXIT
 npm --prefix tests/midscene run check:model
-npm --prefix tests/midscene test -- cases/smoke.yaml
+npm --prefix tests/midscene run test:resilience -- cases
