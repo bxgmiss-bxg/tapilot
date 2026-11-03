@@ -1,4 +1,6 @@
-# Floating virtual display (Debug experiment)
+# Floating virtual display (Experimental)
+
+**Status: Experimental. Debug only, off by default. Not supported for production background automation.**
 
 The optional secondary-display probe can show its actual captured screen in a movable window over other apps. The window is not a mirrored primary screen and is not a background Agent implementation.
 
@@ -15,6 +17,8 @@ The preview consumes actual ImageReader frames at up to 10 frames per second, in
 See [the base experiment](background-display.md) for display isolation, launch checks and the adoption criteria.
 
 ## 中文说明
+
+**实验性功能，仅 Debug 可用，默认关闭，不支持正式后台自动化。**
 
 此功能把虚拟屏的真实截图显示为可拖动的悬浮窗，不是主屏镜像，也尚未接入后台 Agent。
 

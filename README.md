@@ -167,9 +167,10 @@ gestures and test-app launches. It does not run agent tasks in the background.
 See the [experiment protocol and limits](docs/experiments/background-display.md).
 Beta and Release builds do not include the probe.
 
-## Floating virtual-screen preview
+## Floating virtual-screen preview (Experimental)
 
-The Debug probe also offers a movable, interactive preview over other apps.
+**Experimental · Debug only · off by default.** The probe offers a movable
+preview over other apps. Background Agent execution is not supported.
 Tap and swipe requests target only the virtual display; Android may reject them.
 See [setup, permissions and limitations](docs/experiments/floating-virtual-display.md).
 
