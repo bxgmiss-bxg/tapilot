@@ -36,3 +36,9 @@ Physical device: OPPO PEUM00, Android 14. Application: isolated `lifeos.md.tapil
 - `git diff --check` and local documentation/evidence links passed.
 
 An initial packaging attempt lacked a current runtime asset after switching branches. The runtime was rebuilt, the APK was repackaged and its embedded checksum verified before the accepted device run.
+
+## Borderless presentation follow-up
+
+Removed the title bar, footer and colored window chrome. The capture now fills a rounded, borderless surface with a small drag handle and a translucent close control. Both controls retain 48 dp touch targets. Gesture cancellation uses a brief message; detailed probe status remains on the experiment page.
+
+Validation: `assembleDebug -Pe2eVerification` and `lintDebug` passed. The updated isolated APK was installed successfully on the same OPPO. Visual verification is pending: the device remained on its lock screen, and wake/swipe attempts produced black or empty captures. Earlier screenshots above show the previous presentation, not this revision.

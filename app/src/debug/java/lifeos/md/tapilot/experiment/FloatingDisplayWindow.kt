@@ -3,6 +3,7 @@ package lifeos.md.tapilot.experiment
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.graphics.Path
 import android.graphics.PixelFormat
 import android.provider.Settings
@@ -10,9 +11,9 @@ import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
-import android.widget.Button
+import android.widget.FrameLayout
 import android.widget.ImageView
-import android.widget.LinearLayout
+import android.widget.Toast
 import android.widget.TextView
 
 /** A real captured display preview. All input is explicitly addressed to the secondary display. */
@@ -24,9 +25,9 @@ internal class FloatingDisplayWindow(
     private val stop: () -> Unit,
 ) : AutoCloseable {
     private val manager = host.getSystemService(WindowManager::class.java)
-    private var root: LinearLayout? = null
+    private var root: FrameLayout? = null
     private var preview: ImageView? = null
-    private var feedback: TextView? = null
+    private var lastStatus: String? = null
     private var path: Path? = null
     private var downAt = 0L
     private var samples = 0
@@ -38,30 +39,57 @@ internal class FloatingDisplayWindow(
         check(Settings.canDrawOverlays(host)) { "Allow display over other apps first" }
         if (root != null) return
         val bounds = manager.currentWindowMetrics.bounds
-        val width = minOf(dp(240), bounds.width() * 2 / 3)
+        val width = minOf(dp(240), bounds.width() * 2 / 3, bounds.height() / 2 * BackgroundDisplayProbe.WIDTH / BackgroundDisplayProbe.HEIGHT)
         val params = WindowManager.LayoutParams(
             width, WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
             PixelFormat.TRANSLUCENT,
         ).apply { gravity = Gravity.TOP or Gravity.LEFT; x = dp(12); y = dp(80) }
-        val panel = LinearLayout(host).apply {
-            orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.rgb(235, 242, 246))
-            elevation = dp(8).toFloat()
+        val panel = FrameLayout(host).apply {
+            background = GradientDrawable().apply {
+                setColor(Color.BLACK)
+                cornerRadius = dp(12).toFloat()
+            }
+            clipToOutline = true
+            elevation = dp(4).toFloat()
         }
-        val header = LinearLayout(host)
-        val handle = TextView(host).apply {
-            text = text("虚拟屏 · 拖动", "Virtual screen · drag")
-            setTextColor(Color.BLACK); textSize = 13f; gravity = Gravity.CENTER
+        val image = ImageView(host).apply {
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            contentDescription = text("虚拟屏实时画面，可点击或滑动", "Live virtual display; tap or swipe")
+            setOnTouchListener { view, event -> onPreviewTouch(view, event) }
         }
-        header.addView(handle, LinearLayout.LayoutParams(0, dp(48), 1f))
-        header.addView(Button(host).apply {
-            text = "×"
+        val previewHeight = width * BackgroundDisplayProbe.HEIGHT / BackgroundDisplayProbe.WIDTH
+        panel.addView(image, FrameLayout.LayoutParams(width, previewHeight))
+        // Small visual controls with generous touch targets, overlaid on the capture.
+        val handle = FrameLayout(host).apply {
+            contentDescription = text("拖动虚拟屏", "Move virtual display")
+            isFocusable = true
+        }
+        handle.addView(View(host).apply {
+            background = GradientDrawable().apply {
+                setColor(Color.argb(180, 255, 255, 255))
+                cornerRadius = dp(2).toFloat()
+            }
+            elevation = dp(2).toFloat()
+        }, FrameLayout.LayoutParams(dp(32), dp(4), Gravity.CENTER))
+        panel.addView(handle, FrameLayout.LayoutParams(dp(80), dp(48), Gravity.TOP or Gravity.CENTER_HORIZONTAL))
+        val close = FrameLayout(host).apply {
             contentDescription = text("关闭并释放虚拟屏", "Close and release virtual display")
+            isFocusable = true
             setOnClickListener { stop() }
-        }, LinearLayout.LayoutParams(dp(48), dp(48)))
-        panel.addView(header)
+        }
+        close.addView(TextView(host).apply {
+            text = "×"
+            textSize = 19f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.argb(140, 20, 24, 28))
+            }
+        }, FrameLayout.LayoutParams(dp(26), dp(26), Gravity.CENTER))
+        panel.addView(close, FrameLayout.LayoutParams(dp(48), dp(48), Gravity.TOP or Gravity.RIGHT))
         var initialX = 0; var initialY = 0; var downX = 0f; var downY = 0f
         handle.setOnTouchListener { _, event ->
             when (event.actionMasked) {
@@ -75,19 +103,8 @@ internal class FloatingDisplayWindow(
             }
             true
         }
-        val image = ImageView(host).apply {
-            scaleType = ImageView.ScaleType.FIT_CENTER
-            setBackgroundColor(Color.BLACK)
-            contentDescription = text("虚拟屏实时画面，可点击或滑动", "Live virtual display; tap or swipe")
-            setOnTouchListener { view, event -> onPreviewTouch(view, event) }
-        }
-        // Keep the display's aspect ratio, including on small phones.
-        val previewHeight = minOf(width * BackgroundDisplayProbe.HEIGHT / BackgroundDisplayProbe.WIDTH, bounds.height() / 2)
-        panel.addView(image, LinearLayout.LayoutParams(width, previewHeight))
-        val label = TextView(host).apply { setTextColor(Color.BLACK); textSize = 11f; setPadding(dp(6), dp(4), dp(6), dp(4)); maxLines = 4 }
-        panel.addView(label)
         manager.addView(panel, params)
-        root = panel; preview = image; feedback = label
+        root = panel; preview = image
         probe.livePreview = true
         render()
         probe.refresh()
@@ -116,7 +133,7 @@ internal class FloatingDisplayWindow(
                 if (completed != null) {
                     completed.lineTo(point.first, point.second)
                     runCatching { probe.dispatchPath(completed, (event.eventTime - downAt).coerceAtLeast(80)) }
-                        .onFailure { feedback?.text = it.message }
+                        .onFailure { Toast.makeText(host, it.message, Toast.LENGTH_SHORT).show() }
                     view.performClick()
                 }
             }
@@ -127,7 +144,10 @@ internal class FloatingDisplayWindow(
     fun render() {
         if (!probe.active) { close(); return }
         preview?.setImageBitmap(probe.bitmap)
-        feedback?.text = "${text("仅副屏输入；关闭会释放", "Secondary input only; close releases")}\n${probe.status}"
+        if (lastStatus != probe.status && probe.status.contains("gesture cancelled", ignoreCase = true)) {
+            Toast.makeText(host, text("设备取消了虚拟屏操作", "Device cancelled virtual display input"), Toast.LENGTH_SHORT).show()
+        }
+        lastStatus = probe.status
     }
 
     override fun close() {
@@ -135,6 +155,6 @@ internal class FloatingDisplayWindow(
         path = null
         preview?.setImageDrawable(null)
         root?.let { manager.removeViewImmediate(it) }
-        root = null; preview = null; feedback = null
+        root = null; preview = null; lastStatus = null
     }
 }
