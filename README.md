@@ -155,6 +155,10 @@ dependency audits. Device-backed E2E is separate; 23 authored cases do not imply
 23 verified passes. See the [E2E guide and evidence](tests/midscene/README.md) and
 [contribution guide](CONTRIBUTING.md).
 
+If the execution process exits before producing a report, Tapilot shows its exit
+code and available failure diagnostic. An expired preloaded process is restarted
+only before any test or device RPC has begun; a running phone task is not replayed.
+
 Historical device runs do not establish a pass for the latest source.
 
 ## Limits and data

@@ -188,7 +188,10 @@ try {
     // device bridge, fetch a model response, or execute any phone operation.
     await import(pathToFileURL(config).href);
     emit('runtime.prepared', { durationMs: performance.now() - started });
-    if (!interrupted && await waitForActivation(process.stdin)) await test(options);
+    if (!interrupted) {
+      if (await waitForActivation(process.stdin)) await test(options);
+      else if (!interrupted) emit('runtime.expired');
+    }
   } else if (options.command === 'test') {
     await test(options);
   } else {
