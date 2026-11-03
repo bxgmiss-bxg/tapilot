@@ -478,5 +478,34 @@
     "sha256": "39fd9809d7361f5360e9c6fba06a31d4b7843a1faee169ddd9dc1d0178564653",
     "pom": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0.pom",
     "source": "https://repo.maven.apache.org/maven2/org/jetbrains/annotations/23.0.0/annotations-23.0.0-sources.jar"
+  },
+  {
+    "id": "com.github.osservatorionessuno:libadb-android-bc:3.5.1",
+    "license": "Apache-2.0 AND BSD-3-Clause AND MIT",
+    "path": "third-party/notices/android/libadb-android-bc-3.5.1-NOTICE.txt",
+    "sha256": "3d0957f113d2cd3b62c085bf8ef9672df5e57f3c88074de465fab5d82d81de1f",
+    "source": "https://github.com/osservatorionessuno/libadb-android-bc/tree/3.5.1",
+    "pom": "https://jitpack.io/com/github/osservatorionessuno/libadb-android-bc/3.5.1/libadb-android-bc-3.5.1.pom"
+  },
+  {
+    "id": "org.bouncycastle:bcpkix-jdk15to18:1.84",
+    "license": "MIT",
+    "path": "third-party/notices/android/bouncycastle-1.84-NOTICE.txt",
+    "sha256": "b9cfdb6a02ee424f21a66d70dbfde808873ff4498848fb10014f23045a7db726",
+    "source": "https://github.com/bcgit/bc-java/blob/r1rv84/LICENSE.html"
+  },
+  {
+    "id": "org.bouncycastle:bctls-jdk15to18:1.84",
+    "license": "MIT",
+    "path": "third-party/notices/android/bouncycastle-1.84-NOTICE.txt",
+    "sha256": "b9cfdb6a02ee424f21a66d70dbfde808873ff4498848fb10014f23045a7db726",
+    "source": "https://github.com/bcgit/bc-java/blob/r1rv84/LICENSE.html"
+  },
+  {
+    "id": "org.bouncycastle:bcutil-jdk15to18:1.84",
+    "license": "MIT",
+    "path": "third-party/notices/android/bouncycastle-1.84-NOTICE.txt",
+    "sha256": "b9cfdb6a02ee424f21a66d70dbfde808873ff4498848fb10014f23045a7db726",
+    "source": "https://github.com/bcgit/bc-java/blob/r1rv84/LICENSE.html"
   }
 ]

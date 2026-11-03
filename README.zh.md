@@ -164,6 +164,18 @@ Tapilot 日常自动化不需要 ADB。
 提供电脑插件协议。更多上游项目、许可证标识和发布前仍需完成的分发工作见
 [CREDITS.md](CREDITS.md)。
 
+## 可选后台屏实验
+
+Debug 版本提供“设置 → 开发实验 → 后台屏幕（实验性）”，默认关闭。
+必须先[授权并连接可选 Shell 辅助进程](docs/experiments/shell-assisted-display.zh.md)，才能开启虚拟屏；仅有无障碍权限不够。提供通知栏配对、自动查找本机端口和可选的重启恢复，全程无需电脑。
+实验检查独立渲染、截图、定向手势和测试应用启动，尚不支持后台执行 Agent 任务。
+具体操作和限制见[实验说明](docs/experiments/background-display.md)。Beta 和 Release 不包含实验台。
+
+## 虚拟屏悬浮预览（实验性）
+
+**实验性功能，仅 Debug 可用，默认关闭。** 支持在其他应用上方悬浮显示虚拟屏、拖动窗口，并向副屏发送点击和滑动请求；尚不支持后台 Agent 执行。
+系统仍可能拒绝副屏输入。开启方法和限制见[悬浮虚拟屏说明](docs/experiments/floating-virtual-display.md)。
+
 ## 许可证
 
 采用 [MIT 许可证](LICENSE)。第三方组件继续遵循各自许可证，详见
