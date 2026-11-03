@@ -4,6 +4,7 @@ import org.json.JSONObject
 import org.junit.Assert.*
 import org.junit.Test
 import lifeos.md.tapilot.conversation.TaskLifecycle
+import lifeos.md.tapilot.conversation.ExecutionSteps
 
 class ExecutionStepsTest {
     private fun event(id: String, status: String) = JSONObject().put("id", id).put("action", "Tap")
@@ -19,6 +20,20 @@ class ExecutionStepsTest {
         assertEquals(1, rows.size)
         assertEquals("finished", rows.single().status)
         assertEquals("Tap · Equals button", rows.single().label(false))
+    }
+
+    @Test fun resolvedTargetsUpdateWithoutRegressingTerminalState() {
+        val entry = JSONObject()
+        ExecutionSteps.update(entry, event("a", "running").put("target", ""))
+        assertTrue(ExecutionSteps.update(entry, event("a", "running")))
+        assertEquals("Equals button", ExecutionStep.from(entry.getJSONArray("executionSteps")).single().target)
+        ExecutionSteps.update(entry, event("a", "finished"))
+        assertTrue(ExecutionSteps.update(entry, event("a", "finished").put("target", "Resolved equals")))
+        assertFalse(ExecutionSteps.update(entry, event("a", "running").put("target", "")))
+        val row = ExecutionStep.from(entry.getJSONArray("executionSteps")).single()
+        assertEquals("finished", row.status)
+        assertEquals("Resolved equals", row.target)
+        assertEquals(1, row.number)
     }
 
     @Test fun stoppingPreservesCompletedStepsAndDoesNotClaimPendingStepSucceeded() {
