@@ -39,9 +39,10 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
         val busy = state.running || controller.recording || controller.transcribing || controller.picking
         val zh = state.chinese
         fun label(chinese: String, english: String) = if (zh) chinese else english
+        val showGuide = state.showFirstTaskGuide && !state.running
         val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
-        LaunchedEffect(state.activeConversationId, state.messages.size, state.messages.lastOrNull()?.text, compact, imeBottom) {
-            if (state.messages.isNotEmpty()) list.animateScrollToItem(state.messages.lastIndex)
+        LaunchedEffect(state.activeConversationId, state.messages.size, state.messages.lastOrNull()?.text, compact, imeBottom, showGuide) {
+            if (state.messages.isNotEmpty()) list.animateScrollToItem(state.messages.lastIndex + if (showGuide) 1 else 0)
         }
         BoxWithConstraints(Modifier.fillMaxSize().background(colors.background)) {
             Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
@@ -72,23 +73,40 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
                         Text(label("配置模型 API，开始对话", "Configure model API to start chatting"))
                     }
                 }
-                if (state.messages.isEmpty()) {
-                    Column(Modifier.weight(1f).fillMaxWidth().padding(36.dp),
-                        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(label("有什么需要帮忙？", "How can I help?"), fontSize = 22.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(10.dp))
-                        Text(label("输入任务，或长按输入框说话", "Type a task, or hold the input to speak"),
-                            color = colors.onSurfaceVariant, fontSize = 14.sp)
-                    }
-                } else {
-                    LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (showGuide) item(key = "first-task-guide") { FirstTaskCard(controller, busy) }
+                    if (state.messages.isEmpty()) {
+                        item(key = "welcome") {
+                            Column(Modifier.fillMaxWidth().then(if (showGuide) Modifier else Modifier.fillParentMaxHeight()).padding(36.dp),
+                                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(label("有什么需要帮忙？", "How can I help?"), fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(10.dp))
+                                Text(label("输入任务，或长按输入框说话", "Type a task, or hold the input to speak"),
+                                    color = colors.onSurfaceVariant, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
                         items(state.messages, key = { it.id }) { message ->
                             MessageBubble(message, zh, controller, state.running)
                         }
                     }
                 }
                 state.progress?.let { TaskProgressView(it, controller, zh) }
+                state.handoffTaskId?.let { taskId ->
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Text(label("等待你处理", "Waiting for you"), fontWeight = FontWeight.Medium)
+                        Text(label("按上方说明处理，或在输入框补充信息。继续前会重新检查画面。",
+                            "Follow the instructions above, or add details below. The screen will be checked again before continuing."), fontSize = 12.sp)
+                        Row {
+                            TextButton(onClick = { controller.command("handoffOpenApp") }) { Text(label("返回应用", "Return to app")) }
+                            TextButton(onClick = { controller.command("continueTask", id = taskId) }, enabled = !busy) {
+                                Text(label("继续任务", "Continue task"))
+                            }
+                        }
+                    }
+                }
                 if (controller.error.isNotBlank() || controller.playbackError.isNotBlank()) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                         Text(controller.error.ifBlank { controller.playbackError }, color = colors.error, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)

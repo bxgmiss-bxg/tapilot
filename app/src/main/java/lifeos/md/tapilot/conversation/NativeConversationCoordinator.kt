@@ -161,6 +161,7 @@ class NativeConversationCoordinator(
         if (conversations.none { it.id == active() }) conversations.add(0, ChatConversation(active(), local("新对话", "New conversation")))
         val model = profile()
         emit(ChatState(ready = ready, language = AppLanguage.resolved(activity), dark = AppTheme.isDark(activity), paletteId = AppTheme.paletteId(activity),
+            showFirstTaskGuide = ready && FirstTaskGuide.visible(data),
             advancedMode = data.optBoolean("advanced"), executionMode = ExecutionMode.from(data), activeConversationId = active(), messages = messages, conversations = conversations,
             draft = data.optString("draft"), draftEpoch = draftEpoch, running = running,
             configured = if (data.optBoolean("chatgptConversation")) chatGpt.ready else model.optString("baseUrl").isNotBlank() && model.optString("modelName").isNotBlank() && model.optString("modelFamily").isNotBlank() && hasKey(preset),
@@ -169,6 +170,7 @@ class NativeConversationCoordinator(
             attachment = ChatAttachment.parse(pendingAttachment), preview = preview,
             progress = if (inputControl.paused && running && !cancellation.get()) progress?.copy(
                 title = local("已暂停 · 发送或离开聊天后继续", "Paused · send or leave to resume"), operation = "") else progress,
+            handoffTaskId = if (!running && !execution.stopUnconfirmed) TaskHandoffState.pending(history, active())?.optString("id") else null,
             confirmation = confirmationText))
     }
     fun command(value: JSONObject) {
@@ -189,10 +191,30 @@ class NativeConversationCoordinator(
                     submit(value.optString("text", data.optString("draft")))
                     if (preservedDraft != null) { data.put("draft", preservedDraft); draftEpoch++; save() }
                 }
+                "firstTaskExample" -> if (!running && pendingAttachment == null && data.optString("draft").isBlank()) {
+                    data.put("draft", FirstTaskGuide.example(chinese)); draftEpoch++; save(); focus()
+                }
+                "dismissFirstTask" -> if (!running) { data.put("firstTaskDismissed", true); save() }
                 "executionMode" -> {
                     val mode = ExecutionMode.entries.firstOrNull { it.wireValue == value.optString("text") }
                         ?: error("Unknown execution mode")
                     preference("executionMode", mode.wireValue)
+                }
+                "takeOver" -> if (running && !cancellation.get()) {
+                    inputControl.pause()
+                    stop(reason = "user_handoff")
+                }
+                "handoffOpenApp" -> if (!running && !execution.stopUnconfirmed && TaskHandoffState.pending(history(), active()) != null) {
+                    services.call("app.returnToPreviousApp") { it.onFailure(::fail) }
+                }
+                "continueTask" -> if (!running && !execution.stopUnconfirmed) {
+                    val task = TaskHandoffState.pending(history(), active())
+                    if (task != null && task.optString("id") == value.optString("id")) {
+                        start(local("继续任务。请先检查当前画面，核对我手动处理后的状态；不要重复已完成的发送、提交或付款。",
+                            "Continue the task. Inspect the current screen and check the state after my manual changes. Do not repeat completed sends, submissions or payments."),
+                            file = null, global = true, continueOf = task.getString("id"),
+                            restoreDraft = data.optString("draft"), restoreAttachment = pendingAttachment)
+                    }
                 }
                 "stop" -> stop()
                 "settings" -> if (!running) { messageLoads.discard(); settingsOpen = true; settings.clearStatus() }
@@ -490,6 +512,7 @@ class NativeConversationCoordinator(
                         ?.put(if (status in listOf("succeeded", "waiting_user")) "reply" else "detail", message)
                     find(id)?.let {
                         TaskLifecycle.finish(it, status, if (stopped.get()) "" else finalPhase)
+                        if (FirstTaskGuide.verifiedPhoneTask(it)) data.put("firstTaskCompleted", true)
                         android.util.Log.i("TapilotPerformance", JSONObject().put("phase", "task.wall")
                             .put("taskId", id).put("status", status)
                             .put("createdAt", it.getLong("createdAt")).put("completedAt", it.getLong("completedAt"))

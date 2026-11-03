@@ -48,6 +48,17 @@ Powered by [Midscene](https://github.com/web-infra-dev/midscene).
   connects a paired computer to the phone over pinned TLS. Wireless use requires
   an unlocked phone and exclusive control, without ADB or USB.
 
+### Take over a task
+
+Select **Take over** while a task runs. Wait for the stopped confirmation before
+using the phone; an action already dispatched may still finish while stopping.
+The handoff card offers **Return to app** and **Continue task**. Continuing keeps
+the saved task context and asks the agent to inspect the current screen before
+acting. It does not resend the original task as a fresh request. A saved composer
+draft is retained. A task waiting for your answer also offers these controls.
+Leaving the chat after a confirmed handoff does not restart the task.
+Tasks stopped by opening the floating conversation panel also show the handoff card.
+
 ## Try it
 
 Requires an **arm64 Android 11+** phone and a supported vision model. There is no
@@ -63,6 +74,13 @@ verified public release pipeline yet; build a development APK using the steps be
 The composer offers automatic execution (YOLO), confirmation for critical
 operations, or confirmation for every phone operation. **New installations default
 to YOLO.** Choose the confirmation mode appropriate to your task before sending it.
+
+The first-task guide shows whether a model is configured and device control is
+connected. It can fill a Calculator example into an empty composer; you review
+and send it yourself. Existing drafts and attachments are retained. Configuration
+is not a successful connection test: the task exercises the model, screenshots
+and actions. The guide stays available after a failure, and is dismissed after a
+verified phone task succeeds or when you choose Skip guide.
 
 For a self-hosted model on your LAN, use its OpenAI-compatible base URL, such as
 `http://192.168.1.100:8000/v1`, and a supported vision model. The address must be

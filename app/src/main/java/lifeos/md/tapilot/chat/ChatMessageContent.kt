@@ -128,6 +128,9 @@ internal fun TaskProgressView(progress: ChatProgress, controller: ChatController
     Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
             Text(progress.title + " · ${seconds}s", Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 13.sp, color = MaterialTheme.colorScheme.primary)
+            TextButton(onClick = { controller.command("takeOver") }, enabled = !progress.stopping) {
+                Text(if (zh) "我来处理" else "Take over", fontSize = 13.sp)
+            }
             TextButton(onClick = { controller.command("stop") }, enabled = !progress.stopping, contentPadding = PaddingValues(0.dp)) {
                 Text(if (zh) "停止" else "Stop", fontSize = 13.sp)
             }
