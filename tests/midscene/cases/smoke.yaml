@@ -6,8 +6,15 @@ cases:
       - aiAct: >-
           Return to the main Tapilot chat screen. Open the conversation menu at the top
           right and create a new conversation. Verify that the new conversation has an
-          empty message area, an editable task composer, and the execution-mode control.
+          empty message area, a task composer, and the execution-mode control.
           Do not submit a task or start voice.
+      - aiAct: >-
+          Tap the empty task composer once to focus it. Wait up to 10 seconds for the
+          on-screen keyboard to finish opening, observing again while it loads.
+          Stop when the keyboard is visible; fail if it does not appear within that
+          time. Do not enter text, submit a task, or start voice.
+      - aiAssert: >-
+          The on-screen keyboard is visible and the empty task composer is focused.
       - aiAct: >-
           Type "Tapilot E2E draft only" into the task composer without sending it.
           Verify that the exact draft and the Send control are visible. Clear only this
