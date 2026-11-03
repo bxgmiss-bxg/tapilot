@@ -4,6 +4,9 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 : "${ANDROID_HOME:?Android SDK is required}"
 export TAPILOT_E2E_DEVICE_ID=emulator-5554
+# Keep avdmanager and emulator on the same path across SDK tool versions.
+export ANDROID_AVD_HOME="${RUNNER_TEMP:?Hosted runner temp directory is required}/tapilot-avd"
+mkdir -p "$ANDROID_AVD_HOME"
 mkdir -p build/apk-midscene
 emulator="$ANDROID_HOME/emulator/emulator"
 if adb devices | grep -q '^emulator-5554'; then
