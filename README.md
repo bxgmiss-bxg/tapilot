@@ -55,7 +55,7 @@ verified public release pipeline yet; build a development APK using the steps be
 
 1. Install the APK, open Tapilot and enable **Tapilot device control** in Android
    Accessibility settings.
-2. In Tapilot settings, configure an HTTPS vision-model API, or choose the existing
+2. In Tapilot settings, configure an HTTP or HTTPS vision-model API, or choose the existing
    ChatGPT (SIWC) connection option where available. Fill credentials on the phone.
 3. Start with a simple visible task, such as opening Calculator and computing 12 × 8. Inspect
    the actual screen and execution record before relying on the reply.
@@ -63,6 +63,13 @@ verified public release pipeline yet; build a development APK using the steps be
 The composer offers automatic execution (YOLO), confirmation for critical
 operations, or confirmation for every phone operation. **New installations default
 to YOLO.** Choose the confirmation mode appropriate to your task before sending it.
+
+For a self-hosted model on your LAN, use its OpenAI-compatible base URL, such as
+`http://192.168.1.100:8000/v1`, and a supported vision model. The address must be
+reachable from the phone; `localhost` refers to the phone itself. The app still
+requires an API key; if your server does not require authentication, enter a
+non-empty placeholder such as `local`. HTTP sends API keys, messages and screenshots
+without encryption. Use it only on a trusted network; prefer HTTPS otherwise.
 
 ### Set up voice input (optional)
 

@@ -93,10 +93,11 @@ class ConversationStoreTest {
             assertEquals("after", history.getJSONObject(1).getString("result"))
         } finally { root.deleteRecursively() }
     }
-    @Test fun endpointsAreHttpsAndChatCompatible() {
+    @Test fun endpointsAreHttpOrHttpsAndChatCompatible() {
         assertEquals("https://example.test/v1/chat/completions", ModelProfiles.endpoint("https://example.test/v1/"))
         assertEquals("https://example.test/chat/completions", ModelProfiles.endpoint("https://example.test/chat"))
-        assertThrows(IllegalArgumentException::class.java) { ModelProfiles.endpoint("http://example.test") }
+        assertEquals("http://example.test/v1/chat/completions", ModelProfiles.endpoint("http://example.test/v1/"))
         assertThrows(IllegalStateException::class.java) { ModelProfiles.endpoint("https://example.test/v1/responses") }
+        assertThrows(IllegalArgumentException::class.java) { ModelProfiles.endpoint("ftp://example.test") }
     }
 }
