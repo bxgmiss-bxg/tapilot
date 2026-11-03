@@ -163,16 +163,15 @@ class NodeRuntimeProcessSupervisor(
         }
     }
 
-    fun stop(): Boolean {
-        val (process, hadPrepared) = synchronized(lock) {
-            val existed = prepared != null
-            discardPrepared()
-            activeProcess to existed
-        }
-        if (process == null) return hadPrepared
+    fun stop(): Boolean = synchronized(lock) {
+        val hadPrepared = prepared != null
+        discardPrepared()
+        val process = activeProcess ?: return@synchronized hadPrepared
+        // Keep ownership locked until termination and release finish, so an expired
+        // reader cannot replace this process while a stop is already in progress.
         terminate(process)
         release(process)
-        return true
+        true
     }
 
     private fun release(process: Process) {

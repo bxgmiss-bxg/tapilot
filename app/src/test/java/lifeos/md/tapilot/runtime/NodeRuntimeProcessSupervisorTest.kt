@@ -7,6 +7,7 @@ import java.io.OutputStream
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.assertThrows
 import org.junit.Test
@@ -47,6 +48,69 @@ class NodeRuntimeProcessSupervisorTest {
                 assertEquals(if (mode == "expired") 2 else 1, commands.size)
                 if (mode == "expired") assertEquals("test", commands.last()[3])
             } finally { supervisor.close() }
+        }
+    }
+
+    @Test fun concurrentStopPreventsExpiredWorkerReplacement() {
+        val destroyEntered = CountDownLatch(1)
+        val readerExited = CountDownLatch(1)
+        val finishDestroy = CountDownLatch(1)
+        val replacementStarted = CountDownLatch(1)
+        val done = CountDownLatch(1)
+        val starts = java.util.concurrent.atomic.AtomicInteger()
+        val process = object : Process() {
+            @Volatile var alive = true
+            override fun getInputStream() = ByteArrayInputStream(
+                "MIDSCENE_EVENT {\"type\":\"runtime.expired\",\"timestamp\":\"test\"}\n".toByteArray())
+            override fun getErrorStream() = ByteArrayInputStream(byteArrayOf())
+            override fun getOutputStream() = java.io.ByteArrayOutputStream()
+            override fun waitFor(): Int {
+                check(destroyEntered.await(2, TimeUnit.SECONDS))
+                alive = false
+                readerExited.countDown()
+                return 0
+            }
+            override fun waitFor(timeout: Long, unit: TimeUnit) = !alive
+            override fun exitValue(): Int { if (alive) throw IllegalThreadStateException(); return 0 }
+            override fun destroy() {
+                destroyEntered.countDown()
+                check(finishDestroy.await(2, TimeUnit.SECONDS))
+                alive = false
+            }
+        }
+        val supervisor = NodeRuntimeProcessSupervisor { _, _, _ ->
+            if (starts.incrementAndGet() == 1) process else {
+                replacementStarted.countDown()
+                ExpiringPreparedProcess("", 0)
+            }
+        }
+        val runtime = InstalledNodeRuntime(File(".", "node"), File("."), File("runner.mjs"), File("."), File("."),
+            NodeRuntimeManifest(1, "test", "runner.mjs", 20))
+        val request = NodeTestRunRequest(File("."), File("results").absoluteFile)
+        val stopFailure = java.util.concurrent.atomic.AtomicReference<Throwable>()
+        var stopper: Thread? = null
+        try {
+            supervisor.prepareTest(runtime, request)
+            supervisor.runTest(runtime, request, object : NodeRuntimeListener {
+                override fun onLog(line: String) = Unit
+                override fun onEvent(event: NodeRuntimeEvent) = Unit
+                override fun onComplete(exitCode: Int) { done.countDown() }
+                override fun onFailure(error: Throwable) { stopFailure.set(error); done.countDown() }
+            })
+            stopper = Thread { runCatching { supervisor.stop() }.onFailure { stopFailure.set(it) } }.also { it.start() }
+            assertTrue(readerExited.await(2, TimeUnit.SECONDS))
+            assertFalse(replacementStarted.await(200, TimeUnit.MILLISECONDS))
+            finishDestroy.countDown()
+            stopper.join(2000)
+            assertFalse(stopper.isAlive)
+            assertTrue(done.await(2, TimeUnit.SECONDS))
+            stopFailure.get()?.let { throw it }
+            assertEquals(1, starts.get())
+            assertFalse(supervisor.isRunning())
+        } finally {
+            finishDestroy.countDown()
+            stopper?.join(2000)
+            supervisor.close()
         }
     }
 
