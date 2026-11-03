@@ -39,9 +39,10 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
         val busy = state.running || controller.recording || controller.transcribing || controller.picking
         val zh = state.chinese
         fun label(chinese: String, english: String) = if (zh) chinese else english
+        val showGuide = state.showFirstTaskGuide && !state.running
         val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
-        LaunchedEffect(state.activeConversationId, state.messages.size, state.messages.lastOrNull()?.text, compact, imeBottom) {
-            if (state.messages.isNotEmpty()) list.animateScrollToItem(state.messages.lastIndex)
+        LaunchedEffect(state.activeConversationId, state.messages.size, state.messages.lastOrNull()?.text, compact, imeBottom, showGuide) {
+            if (state.messages.isNotEmpty()) list.animateScrollToItem(state.messages.lastIndex + if (showGuide) 1 else 0)
         }
         BoxWithConstraints(Modifier.fillMaxSize().background(colors.background)) {
             Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
@@ -72,17 +73,21 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
                         Text(label("配置模型 API，开始对话", "Configure model API to start chatting"))
                     }
                 }
-                if (state.messages.isEmpty()) {
-                    Column(Modifier.weight(1f).fillMaxWidth().padding(36.dp),
-                        verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(label("有什么需要帮忙？", "How can I help?"), fontSize = 22.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(10.dp))
-                        Text(label("输入任务，或长按输入框说话", "Type a task, or hold the input to speak"),
-                            color = colors.onSurfaceVariant, fontSize = 14.sp)
-                    }
-                } else {
-                    LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list,
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(Modifier.weight(1f).fillMaxWidth(), state = list,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (showGuide) item(key = "first-task-guide") { FirstTaskCard(controller, busy) }
+                    if (state.messages.isEmpty()) {
+                        item(key = "welcome") {
+                            Column(Modifier.fillMaxWidth().then(if (showGuide) Modifier else Modifier.fillParentMaxHeight()).padding(36.dp),
+                                verticalArrangement = Arrangement.Center, horizontalAlignment = Alignment.CenterHorizontally) {
+                                Text(label("有什么需要帮忙？", "How can I help?"), fontSize = 22.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(10.dp))
+                                Text(label("输入任务，或长按输入框说话", "Type a task, or hold the input to speak"),
+                                    color = colors.onSurfaceVariant, fontSize = 14.sp)
+                            }
+                        }
+                    } else {
                         items(state.messages, key = { it.id }) { message ->
                             MessageBubble(message, zh, controller, state.running)
                         }
