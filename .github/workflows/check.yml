@@ -136,6 +136,8 @@ jobs:
             build/apk-midscene/
             tests/midscene/midscene_run/
             tests/midscene/.midscene/test-results/
+            tests/midscene/cases/midscene_run/
+            tests/midscene/cases/.midscene/test-results/
           include-hidden-files: true
           retention-days: 7
       - name: Locate APK smoke HTML report
@@ -144,7 +146,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          reports=(tests/midscene/midscene_run/report/midscene-e2e-*/index.html)
+          reports=(tests/midscene/cases/midscene_run/report/midscene-e2e-*/index.html)
           if [ "${#reports[@]}" -ne 1 ]; then
             echo '::error::Expected exactly one APK smoke HTML report'
             exit 1
