@@ -64,6 +64,13 @@ foreground services, wireless pairing and upgrade behavior.
 
 ## Signing and CI
 
+The hosted verification and APK smoke jobs reuse Gradle dependencies and task
+outputs, npm downloads, and checksum-verified Termux packages. Gradle validates
+task inputs before reusing outputs; runtime generation, APK installation, and
+all live Midscene cases still run. Main pushes and trusted manual runs populate
+the Gradle cache; pull requests only read it. A first run starts cold, so compare
+repeat runs when measuring CI speed.
+
 To reproduce the `Checks` workflow locally after configuring the toolchain above,
 run these commands in order (stop if any command fails):
 

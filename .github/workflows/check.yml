@@ -75,11 +75,18 @@ jobs:
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      # Cache task outputs as well as downloaded Gradle dependencies.
+      GRADLE_OPTS: -Dorg.gradle.caching=true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            plugins/tapilot/package-lock.json
+            tests/midscene/package-lock.json
       - uses: pnpm/action-setup@v4
         with:
           version: '12.4.1'
@@ -87,6 +94,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Restore Gradle dependencies and task outputs
+        uses: gradle/actions/setup-gradle@7ca78c16c887dc6c5f36fd6d0cb0f5c23d940e69 # v6
+        with:
+          # Trusted manual runs can warm the branch cache before merging.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Cache verified native runtime downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/termux/debs
+          key: ${{ runner.os }}-termux-${{ hashFiles('scripts/fetch-*.sh', 'scripts/termux-package-cache.sh') }}
+          restore-keys: ${{ runner.os }}-termux-
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -302,11 +320,18 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      # Cache task outputs as well as downloaded Gradle dependencies.
+      GRADLE_OPTS: -Dorg.gradle.caching=true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            plugins/tapilot/package-lock.json
+            tests/midscene/package-lock.json
       - uses: pnpm/action-setup@v4
         with:
           version: '12.4.1'
@@ -314,6 +339,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Restore Gradle dependencies and task outputs
+        uses: gradle/actions/setup-gradle@7ca78c16c887dc6c5f36fd6d0cb0f5c23d940e69 # v6
+        with:
+          # Trusted manual runs can warm the branch cache before merging.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Cache verified native runtime downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/termux/debs
+          key: ${{ runner.os }}-termux-${{ hashFiles('scripts/fetch-*.sh', 'scripts/termux-package-cache.sh') }}
+          restore-keys: ${{ runner.os }}-termux-
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
