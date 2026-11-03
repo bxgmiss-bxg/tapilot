@@ -48,12 +48,18 @@ Powered by [Midscene](https://github.com/web-infra-dev/midscene)。
 目前尚无验证完成的公开发布流程，可按下方步骤构建开发 APK。
 
 1. 安装 APK，打开 Tapilot，在 Android 无障碍设置中启用 **Tapilot 设备控制**。
-2. 在 Tapilot 设置中配置 HTTPS 视觉模型 API，或在可用时选择现有的 ChatGPT（SIWC）
+2. 在 Tapilot 设置中配置 HTTP 或 HTTPS 视觉模型 API，或在可用时选择现有的 ChatGPT（SIWC）
    连接方式。凭据只在手机内填写。
 3. 先试计算器这样的简单可见任务，再查看真实画面和执行记录，核对结果。
 
 输入框支持自动执行（YOLO）、关键操作确认和每次操作确认。
 **新安装默认使用 YOLO。** 发送任务前，请根据任务选择合适的确认方式。
+
+使用局域网自托管模型时，填写兼容 OpenAI 的基础地址，例如
+`http://192.168.1.100:8000/v1`，并选择受支持的视觉模型。手机必须能访问该地址，
+`localhost` 指的是手机自身。应用仍要求填写 API Key；如果服务端不需要鉴权，
+可以填写 `local` 等非空占位值。HTTP 会以明文发送 API Key、消息和截图，
+仅在可信网络中使用，其他情况优先使用 HTTPS。
 
 ### 配置语音输入（可选）
 
