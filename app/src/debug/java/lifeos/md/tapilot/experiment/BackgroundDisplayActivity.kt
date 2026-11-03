@@ -12,6 +12,7 @@ import android.view.ViewGroup
 import android.widget.*
 import lifeos.md.tapilot.AppLanguage
 import lifeos.md.tapilot.shell.ShellSession
+import lifeos.md.tapilot.shell.LocalAdbSetup
 
 /** Optional developer lab, never started by an agent or enabled across app restarts. */
 class BackgroundDisplayActivity : Activity() {
@@ -21,6 +22,7 @@ class BackgroundDisplayActivity : Activity() {
     private lateinit var input: EditText
     private lateinit var shellStatus: TextView
     private lateinit var startButton: Button
+    private lateinit var localAdb: LocalAdbSetup
     private var floating: FloatingDisplayWindow? = null
     private var zh = false
     private fun text(chinese: String, english: String) = if (zh) chinese else english
@@ -28,6 +30,7 @@ class BackgroundDisplayActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         zh = AppLanguage.resolved(this) == "zh"
+        localAdb = LocalAdbSetup(this, zh)
         val layout = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(24, 40, 24, 32); setBackgroundColor(Color.WHITE)
         }
@@ -56,12 +59,13 @@ class BackgroundDisplayActivity : Activity() {
         layout.addView(shellStatus)
         button("授权 Shell 辅助", "Authorize shell helper") {
             AlertDialog.Builder(this).setTitle(text("启用可选 Shell 辅助", "Enable optional shell helper"))
-                .setMessage(text("允许辅助进程创建虚拟屏、在副屏启动应用和发送输入。仅本次实验有效，可随时撤销。确认后需通过已授权的 ADB 连接运行启动脚本；不会自动开启无线调试。",
-                    "Allow a helper to create a virtual display, launch apps and send input on that display. Authorization lasts only for this experiment and can be revoked. Then run the starter script through an authorized ADB connection. Wireless debugging is not enabled automatically."))
+                .setMessage(text("允许辅助进程创建虚拟屏、在副屏启动应用和发送输入。仅本次实验有效，可随时撤销。确认后可在本机无线调试中配对并启动；不会自动开启无线调试。",
+                    "Allow a helper to create a virtual display, launch apps and send input on that display. Authorization lasts only for this experiment and can be revoked. Then pair and connect through Wireless debugging on this phone. Wireless debugging is not enabled automatically."))
                 .setPositiveButton(text("授权", "Authorize")) { _, _ ->
                     probe.close(); ShellSession.authorize(this)
                 }.setNegativeButton(android.R.string.cancel, null).show()
         }
+        button("在手机上配对与连接", "Pair and connect on this phone") { localAdb.show() }
         button("撤销 Shell 授权", "Revoke shell authorization") { probe.close(); ShellSession.revoke() }
         startButton = Button(this).apply {
             text = text("开始虚拟屏实验", "Start virtual display experiment")
@@ -71,6 +75,7 @@ class BackgroundDisplayActivity : Activity() {
         }
         layout.addView(startButton)
         ShellSession.changed = {
+            localAdb.onSessionChanged()
             if (!ShellSession.ready && probe.active) probe.close()
             render()
         }
@@ -110,11 +115,11 @@ class BackgroundDisplayActivity : Activity() {
         if (!::status.isInitialized || !::probe.isInitialized) return
         startButton.isEnabled = ShellSession.ready
         shellStatus.text = if (ShellSession.ready) text("Shell 辅助已授权并连接", "Shell helper authorized and connected")
-            else text("虚拟屏不可用：请授权 Shell 辅助，再运行 scripts/start-shell-helper.py --serial <设备序列号> --package $packageName。授权请求五分钟后失效。", "Virtual display unavailable: authorize the helper, then run scripts/start-shell-helper.py --serial <device> --package $packageName. The request expires after five minutes.")
+            else text("虚拟屏不可用：请先授权 Shell 辅助，再选择“在手机上配对与连接”。无需电脑，授权请求五分钟后失效。", "Virtual display unavailable: authorize the helper, then choose Pair and connect on this phone. No computer needed. The request expires after five minutes.")
         status.text = "${probe.status}\nframes=${probe.frames}, taps=${probe.taps}, primaryInputFocused=${input.hasFocus()}"
         preview.setImageBitmap(probe.bitmap)
         floating?.render()
     }
 
-    override fun onDestroy() { ShellSession.changed = null; floating?.close(); if (::probe.isInitialized) probe.dispose(); ShellSession.revoke(); super.onDestroy() }
+    override fun onDestroy() { ShellSession.changed = null; if (::localAdb.isInitialized) localAdb.close(); floating?.close(); if (::probe.isInitialized) probe.dispose(); ShellSession.revoke(); super.onDestroy() }
 }

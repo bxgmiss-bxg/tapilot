@@ -164,6 +164,8 @@ android {
 }
 
 dependencies {
+    debugImplementation("com.github.osservatorionessuno:libadb-android-bc:3.5.1")
+    debugImplementation("org.bouncycastle:bcpkix-jdk15to18:1.84")
     implementation("androidx.activity:activity-ktx:1.9.3")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation(platform("androidx.compose:compose-bom:2025.03.01"))

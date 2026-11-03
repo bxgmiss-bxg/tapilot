@@ -14,5 +14,6 @@ internal class ShellConsent {
         clear()
         return true
     }
+    fun pending(now: Long): String? = token?.takeIf { now < until }
     fun clear() { token = null; until = 0L }
 }

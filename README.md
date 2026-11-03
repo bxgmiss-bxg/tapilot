@@ -163,6 +163,7 @@ license identifiers and redistribution work still required before release.
 
 Debug builds offer **Settings → Developer experiments → Secondary display probe**.
 It requires [explicit shell-helper authorization and connection](docs/experiments/shell-assisted-display.md),
+supports on-device Wireless debugging pairing without a computer,
 is off by default, and checks isolated rendering, captured frames, targeted
 gestures and test-app launches. It does not run agent tasks in the background.
 See the [experiment protocol and limits](docs/experiments/background-display.md).

@@ -21,6 +21,9 @@ internal object ShellSession {
     fun requireHelper(): IDisplayHelper = checkNotNull(helper?.takeIf { ready }) {
         "Authorize and connect the optional shell helper first"
     }
+    fun pendingToken(): String = checkNotNull(consent.pending(SystemClock.elapsedRealtime())) {
+        "Authorize the optional shell helper first; requests expire after five minutes"
+    }
     fun authorize(context: Context) {
         revoke()
         val token = ByteArray(32).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
