@@ -42,6 +42,6 @@ internal class ConversationModelClient(
     fun complete(model: ModelProfile, key: String, messages: JSONArray, tools: JSONArray, session: String, stopped: AtomicBoolean): JSONObject {
         val response = request(NativeModelRequest.params(model.json(), key, messages, tools), session, stopped)
         if (response.optInt("status") !in 200..299) apiFailure(response, key)
-        return NativeModelRequest.decode(response)
+        return NativeModelRequest.decode(response, NativeModelRequest.responsesScope(model.json(), key))
     }
 }

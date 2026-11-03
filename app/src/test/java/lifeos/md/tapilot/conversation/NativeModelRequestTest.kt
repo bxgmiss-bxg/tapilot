@@ -7,8 +7,8 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class NativeModelRequestTest {
-    @Test fun terraUsesCompletionBudgetOnlyAtOfficialEndpoint() {
-        val profile = ModelProfiles.defaults("openai").put("modelName", "gpt-6.1-terra")
+    @Test fun modernChatModelsUseCompletionBudgetOnlyAtOfficialEndpoint() {
+        val profile = ModelProfiles.defaults("openai").put("modelName", "gpt-5")
         fun body() = JSONObject(String(Base64.getDecoder().decode(
             NativeModelRequest.params(profile, "test-key", JSONArray()).getString("bodyBase64"))))
         assertEquals(2048, body().getInt("max_completion_tokens"))
@@ -16,6 +16,25 @@ class NativeModelRequestTest {
         profile.put("baseUrl", "https://example.org/v1")
         assertEquals(2048, body().getInt("max_tokens"))
         assertFalse(body().has("max_completion_tokens"))
+    }
+    @Test fun terraToolsUseResponsesAndReplayIsIsolatedByCredentialAndModel() {
+        val profile = ModelProfiles.defaults("openai").put("modelName", "gpt-6.1-terra")
+        val scope = NativeModelRequest.responsesScope(profile, "test-key")
+        val messages = JSONArray().put(JSONObject().put("role", "assistant").put("content", "Working")
+            .put("tapilotResponsesAccount", scope).put("tapilotResponsesOutput",
+                JSONArray().put(JSONObject().put("type", "reasoning").put("encrypted_content", "opaque"))))
+        val request = NativeModelRequest.params(profile, "test-key", messages)
+        assertEquals("https://api.openai.com/v1/responses", request.getString("url"))
+        fun body(key: String) = JSONObject(String(Base64.getDecoder().decode(
+            NativeModelRequest.params(profile, key, messages).getString("bodyBase64"))))
+        assertTrue(body("test-key").toString().contains("opaque"))
+        assertFalse(body("replacement-key").toString().contains("opaque"))
+        assertFalse(body("test-key").has("reasoning_effort"))
+        assertFalse(body("test-key").has("max_tokens"))
+        assertEquals("namespace", body("test-key").getJSONArray("tools").getJSONObject(0).getString("type"))
+        profile.put("modelName", "gpt-6-astra")
+        assertFalse(body("test-key").toString().contains("opaque"))
+        assertTrue(messages.toString().contains("opaque"))
     }
     @Test fun switchingFromChatGptDoesNotForwardOpaqueResponsesStateToOtherProviders() {
         val messages = JSONArray().put(JSONObject().put("role", "assistant").put("content", "done")
