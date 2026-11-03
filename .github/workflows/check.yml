@@ -64,6 +64,102 @@ jobs:
             echo "[Open interactive HTML reports]($REPORT_URL)"
             echo "Revision: $GITHUB_SHA; test outcome: $TEST_OUTCOME"
           } >> "$GITHUB_STEP_SUMMARY"
+  apk-midscene:
+    name: APK install and Midscene smoke
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '12.4.1'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: pnpm install --frozen-lockfile
+      - run: npm ci --prefix tests/midscene
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
+      - name: Build the actual verification APK with bundled ARM64 runtime
+        run: |
+          pnpm runtime:bundle
+          pnpm runtime:node
+          ./gradlew :app:assembleDebug -Pe2eVerification=true --max-workers=2 --no-parallel --no-daemon
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install APK and run real screen smoke tests with Terra
+        id: apk-test
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        env:
+          MIDSCENE_MODEL_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
+          MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
+          MIDSCENE_MODEL_NAME: gpt-6.1-terra
+          MIDSCENE_MODEL_FAMILY: gpt-6
+          MIDSCENE_MODEL_PROTOCOL: openai-responses
+          MIDSCENE_INCLUDE_TAGS: smoke
+          MIDSCENE_EXCLUDE_TAGS: ''
+          TAPILOT_E2E_DEVICE_ID: emulator-5554
+          TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
+          TAPILOT_E2E_SCREEN_INFO: wm
+          MIDSCENE_REPORT_QUIET: 'true'
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          disable-animations: true
+          script: bash scripts/run-apk-ci-smoke.sh
+      - name: Preserve APK identity and visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-midscene-${{ github.sha }}
+          path: |
+            build/apk-midscene/
+            tests/midscene/midscene_run/
+            tests/midscene/.midscene/test-results/
+          include-hidden-files: true
+          retention-days: 7
+      - name: Locate APK smoke HTML report
+        id: apk-report
+        if: ${{ always() && (steps.apk-test.outcome == 'success' || steps.apk-test.outcome == 'failure') }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          reports=(tests/midscene/midscene_run/report/midscene-e2e-*/index.html)
+          if [ "${#reports[@]}" -ne 1 ]; then
+            echo '::error::Expected exactly one APK smoke HTML report'
+            exit 1
+          fi
+          echo "directory=${reports[0]%/index.html}" >> "$GITHUB_OUTPUT"
+      - name: Publish APK smoke report
+        id: apk-pages
+        if: ${{ always() && steps.apk-report.outcome == 'success' }}
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.1'
+          packageManager: npm
+          command: pages deploy "${{ steps.apk-report.outputs.directory }}" --project-name=tapilot-apk-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
+      - name: Link APK report
+        if: ${{ always() && steps.apk-pages.outcome == 'success' }}
+        env:
+          REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
+        run: echo "[APK install and Midscene smoke report]($REPORT_URL) — $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e
     runs-on: ubuntu-latest

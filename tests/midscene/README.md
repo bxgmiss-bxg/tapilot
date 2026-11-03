@@ -403,3 +403,23 @@ VALIDATED before submitting the explicit retry. A different validated network or
 an enabled Wi-Fi switch is insufficient. This is a system-connectivity precondition,
 not proof that the configured model endpoint is reachable; the final real task
 still determines recovery success. The wait is bounded to 60 seconds.
+
+### Automatic APK smoke on hosted CI
+
+Every main push and trusted manual dispatch also runs `APK install and Midscene
+smoke` on an Android 35 Google APIs x86_64 emulator. It builds the actual debug
+verification APK with the bundled ARM64 runtime, installs it with ADB, records
+the source SHA, APK SHA-256 and package metadata, and runs all three existing
+`cases/smoke.yaml` cases using `gpt-6.1-terra` through the official Responses API.
+The Google APIs image provides ARM ABI translation for installation; this job
+covers the installed application's UI, not ARM64 native-task execution or
+physical-device services. The separate dedicated-device workflow remains for
+hardware validation.
+
+The fresh emulator contains no personal accounts. Screenshots and reports are
+published to the dedicated `tapilot-apk-reports` Cloudflare Pages project, with
+a per-run preview URL in the CI Summary. Both this project and
+`tapilot-terra-reports` require the configured Pages-edit token. Failed cases
+remain failed even when report publication succeeds. PR runs use neither the
+model nor Cloudflare token. APK identity, logs and visual evidence remain
+available as the `apk-midscene-<sha>` artifact for seven days.
