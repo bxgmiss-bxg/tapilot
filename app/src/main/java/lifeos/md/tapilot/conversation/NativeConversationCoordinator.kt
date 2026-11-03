@@ -170,6 +170,7 @@ class NativeConversationCoordinator(
             attachment = ChatAttachment.parse(pendingAttachment), preview = preview,
             progress = if (inputControl.paused && running && !cancellation.get()) progress?.copy(
                 title = local("已暂停 · 发送或离开聊天后继续", "Paused · send or leave to resume"), operation = "") else progress,
+            handoffTaskId = if (!running && !execution.stopUnconfirmed) TaskHandoffState.pending(history, active())?.optString("id") else null,
             confirmation = confirmationText))
     }
     fun command(value: JSONObject) {
@@ -198,6 +199,22 @@ class NativeConversationCoordinator(
                     val mode = ExecutionMode.entries.firstOrNull { it.wireValue == value.optString("text") }
                         ?: error("Unknown execution mode")
                     preference("executionMode", mode.wireValue)
+                }
+                "takeOver" -> if (running && !cancellation.get()) {
+                    inputControl.pause()
+                    stop(reason = "user_handoff")
+                }
+                "handoffOpenApp" -> if (!running && !execution.stopUnconfirmed && TaskHandoffState.pending(history(), active()) != null) {
+                    services.call("app.returnToPreviousApp") { it.onFailure(::fail) }
+                }
+                "continueTask" -> if (!running && !execution.stopUnconfirmed) {
+                    val task = TaskHandoffState.pending(history(), active())
+                    if (task != null && task.optString("id") == value.optString("id")) {
+                        start(local("继续任务。请先检查当前画面，核对我手动处理后的状态；不要重复已完成的发送、提交或付款。",
+                            "Continue the task. Inspect the current screen and check the state after my manual changes. Do not repeat completed sends, submissions or payments."),
+                            file = null, global = true, continueOf = task.getString("id"),
+                            restoreDraft = data.optString("draft"), restoreAttachment = pendingAttachment)
+                    }
                 }
                 "stop" -> stop()
                 "settings" -> if (!running) { messageLoads.discard(); settingsOpen = true; settings.clearStatus() }

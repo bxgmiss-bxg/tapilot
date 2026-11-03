@@ -94,6 +94,19 @@ fun ChatScreen(controller: ChatController, compact: Boolean = false, voiceConnec
                     }
                 }
                 state.progress?.let { TaskProgressView(it, controller, zh) }
+                state.handoffTaskId?.let { taskId ->
+                    Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) {
+                        Text(label("等待你处理", "Waiting for you"), fontWeight = FontWeight.Medium)
+                        Text(label("按上方说明处理，或在输入框补充信息。继续前会重新检查画面。",
+                            "Follow the instructions above, or add details below. The screen will be checked again before continuing."), fontSize = 12.sp)
+                        Row {
+                            TextButton(onClick = { controller.command("handoffOpenApp") }) { Text(label("返回应用", "Return to app")) }
+                            TextButton(onClick = { controller.command("continueTask", id = taskId) }, enabled = !busy) {
+                                Text(label("继续任务", "Continue task"))
+                            }
+                        }
+                    }
+                }
                 if (controller.error.isNotBlank() || controller.playbackError.isNotBlank()) {
                     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                         Text(controller.error.ifBlank { controller.playbackError }, color = colors.error, fontSize = 13.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
