@@ -117,12 +117,18 @@ class NodeRuntimeProcessSupervisor(
             activeInput = process.outputStream.bufferedWriter()
             if (candidate != null) respondToRpc(JSONObject().put("type", "activate"))
             executor.execute {
+                var preparationExpired = false
+                var testStarted = false
                 val result = runCatching {
                     process.inputStream.bufferedReader().useLines { lines ->
                         lines.forEach { line ->
                             val event = runCatching { NodeRuntimeEvent.parse(line) }
                                 .getOrElse { throw IOException("Invalid Node runtime event", it) }
-                            if (event == null) listener.onLog(line) else listener.onEvent(event)
+                            if (event == null) listener.onLog(line) else {
+                                if (event.type == "runtime.expired") preparationExpired = true
+                                if (event.type == "test.started" || event.type == "rpc.request") testStarted = true
+                                listener.onEvent(event)
+                            }
                         }
                     }
                     process.waitFor()
@@ -133,6 +139,23 @@ class NodeRuntimeProcessSupervisor(
                 if (terminated.isFailure) {
                     result.exceptionOrNull()?.addSuppressed(terminated.exceptionOrNull()!!)
                 }
+                // A live prepared process can already have passed its activation deadline
+                // (for example while suspended). Restart only after its explicit expiry,
+                // before any test/RPC, and while we still own it; never replay a phone task.
+                val restarted = synchronized(lock) {
+                    if (candidate != null && preparationExpired && !testStarted &&
+                        result.getOrNull() == 0 && activeProcess === process
+                    ) {
+                        release(process)
+                        try {
+                            start(runtime, arguments, workingDirectory, environment, listener)
+                        } catch (error: Throwable) {
+                            listener.onFailure(error)
+                        }
+                        true
+                    } else false
+                }
+                if (restarted) return@execute
                 if (terminated.isSuccess) release(process)
                 result.fold(listener::onComplete, listener::onFailure)
             }

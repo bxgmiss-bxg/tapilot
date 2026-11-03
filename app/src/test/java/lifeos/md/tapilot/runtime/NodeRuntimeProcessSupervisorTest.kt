@@ -13,6 +13,54 @@ import org.junit.Test
 import org.json.JSONObject
 
 class NodeRuntimeProcessSupervisorTest {
+    @Test fun expiredPreparationRetriesOnlyBeforeExecutionAndWithoutCancellation() {
+        for (mode in listOf("expired", "started", "rpc", "stopped", "failed")) {
+            val events = buildString {
+                if (mode == "started") append("MIDSCENE_EVENT {\"type\":\"test.started\",\"timestamp\":\"test\"}\n")
+                if (mode == "rpc") append("MIDSCENE_EVENT {\"type\":\"rpc.request\",\"timestamp\":\"test\"}\n")
+                append("MIDSCENE_EVENT {\"type\":\"runtime.expired\",\"timestamp\":\"test\"}\n")
+            }
+            val commands = mutableListOf<List<String>>()
+            val supervisor = NodeRuntimeProcessSupervisor { command, _, _ ->
+                commands.add(command)
+                ExpiringPreparedProcess(if (commands.size == 1) events else "", if (mode == "failed") 1 else 0)
+            }
+            val runtime = InstalledNodeRuntime(File(".", "node"), File("."), File("runner.mjs"), File("."), File("."),
+                NodeRuntimeManifest(1, "test", "runner.mjs", 20))
+            val request = NodeTestRunRequest(File("."), File("results").absoluteFile)
+            val done = CountDownLatch(1)
+            val failure = java.util.concurrent.atomic.AtomicReference<Throwable>()
+            var completions = 0
+            try {
+                supervisor.prepareTest(runtime, request)
+                supervisor.runTest(runtime, request, object : NodeRuntimeListener {
+                    override fun onLog(line: String) = Unit
+                    override fun onEvent(event: NodeRuntimeEvent) {
+                        if (mode == "stopped" && event.type == "runtime.expired") supervisor.stop()
+                    }
+                    override fun onComplete(exitCode: Int) { completions++; done.countDown() }
+                    override fun onFailure(error: Throwable) { failure.set(error); done.countDown() }
+                })
+                assertTrue(done.await(2, TimeUnit.SECONDS))
+                failure.get()?.let { throw it }
+                assertEquals(1, completions)
+                assertEquals(if (mode == "expired") 2 else 1, commands.size)
+                if (mode == "expired") assertEquals("test", commands.last()[3])
+            } finally { supervisor.close() }
+        }
+    }
+
+    private class ExpiringPreparedProcess(events: String, private val code: Int) : Process() {
+        private var alive = true
+        private val input = ByteArrayInputStream(events.toByteArray())
+        override fun getInputStream() = input
+        override fun getErrorStream() = ByteArrayInputStream(byteArrayOf())
+        override fun getOutputStream() = java.io.ByteArrayOutputStream()
+        override fun waitFor(): Int { alive = false; return code }
+        override fun exitValue(): Int { if (alive) throw IllegalThreadStateException(); return code }
+        override fun destroy() { alive = false }
+    }
+
     @Test
     fun acceptsOnlyModelAndMidsceneEnvironment() {
         val result = NodeRuntimeProcessSupervisor.sanitizeEnvironment(

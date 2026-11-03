@@ -286,6 +286,11 @@ class NodeTestRunCoordinator(
                     }
                     runCatching {
                         updateStatus(TaskExecutionStatus.FINALIZING)
+                        // Startup failures and native crashes have no HTML report. Preserve
+                        // their cause before report import can replace it with a secondary error.
+                        if (completedAt == null) {
+                            throw nodeRunIncompleteError(exitCode, failureMessage, logs.toList(), environment)
+                        }
                         val importStarted = android.os.SystemClock.elapsedRealtime()
                         val importedReports = JSONArray()
                         for (index in 0 until agentReports.length()) {
@@ -313,7 +318,7 @@ class NodeTestRunCoordinator(
                         }
                         if (importedReports.length() == 0) {
                             val source = reportPath?.takeIf { it.isNotBlank() }?.let(::File)
-                                ?: error("Node Test Runner did not return a report")
+                                ?: throw nodeRunIncompleteError(exitCode, failureMessage, logs.toList(), environment)
                             importedReports.put(
                                 JSONObject()
                                     .put("reportId", reportRepository.importFile(source))
