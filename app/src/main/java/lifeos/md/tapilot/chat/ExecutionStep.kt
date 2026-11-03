@@ -1,0 +1,37 @@
+package lifeos.md.tapilot.chat
+
+import org.json.JSONArray
+import org.json.JSONObject
+
+/** A runtime task, not a claim that the user's goal has been verified. */
+data class ExecutionStep(val id: String, val number: Int, val action: String, val target: String, val status: String) {
+    fun label(zh: Boolean): String {
+        val names = mapOf(
+            "Plan" to ("分析下一步" to "Plan next action"),
+            "Locate" to ("定位屏幕目标" to "Locate target"),
+            "Tap" to ("点击" to "Tap"), "Input" to ("输入文字" to "Enter text"),
+            "Scroll" to ("滚动" to "Scroll"), "Swipe" to ("滑动" to "Swipe"),
+            "Launch" to ("打开应用" to "Open app"), "Query" to ("读取屏幕" to "Read screen"),
+            "Assert" to ("核对屏幕" to "Check screen"),
+            "AndroidBackButton" to ("返回" to "Go back"),
+            "AndroidHomeButton" to ("回到桌面" to "Go home"),
+            "AndroidRecentAppsButton" to ("打开最近应用" to "Open recent apps"),
+        )
+        val name = names[action]?.let { if (zh) it.first else it.second } ?: action
+        return if (target.isBlank()) name else "$name · $target"
+    }
+    fun stateLabel(zh: Boolean): String = when (status) {
+        "finished" -> if (zh) "已执行" else "Executed"
+        "failed" -> if (zh) "失败" else "Failed"
+        "cancelled" -> if (zh) "已取消" else "Cancelled"
+        "interrupted" -> if (zh) "未确认完成" else "Completion unknown"
+        else -> if (zh) "执行中" else "Running"
+    }
+    companion object {
+        fun from(values: JSONArray?): List<ExecutionStep> = if (values == null) emptyList() else
+            List(values.length()) { index -> values.getJSONObject(index).let {
+                ExecutionStep(it.getString("id"), it.optInt("number", index + 1), it.getString("action"),
+                    it.optString("target"), it.getString("status"))
+            } }
+    }
+}

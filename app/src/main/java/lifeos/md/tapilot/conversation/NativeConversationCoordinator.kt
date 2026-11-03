@@ -149,7 +149,7 @@ class NativeConversationCoordinator(
                     e.optJSONArray("plan")?.strings().orEmpty(), e.optInt("currentStep"), e.optInt("modelTurns"),
                     e.optInt("phoneOperations"), e.optInt("attempt", 1), e.optJSONArray("completedOperations")?.objects().orEmpty()
                         .map { ChatOperation(it.optString("instruction"), it.optBoolean("success"), it.optString("result")) },
-                    createdAt = e.optLong("createdAt"), completedAt = e.optLong("completedAt")), reports = reports))
+                    createdAt = e.optLong("createdAt"), completedAt = e.optLong("completedAt"), steps = ExecutionStep.from(e.optJSONArray("executionSteps"))), reports = reports))
         }.sortedBy { it.first }.map { it.second }
         // Build each conversation once; repeated capture progress must not scan
         // the entire history for every sidebar entry.
@@ -561,6 +561,11 @@ class NativeConversationCoordinator(
         }
     }
     private fun find(id: String) = history().find { it.optString("id") == id }
+    fun phoneStep(ownerSession: String, value: JSONObject) {
+        if (!running || cancellation.get() || !execution.owns(ownerSession)) return
+        val entry = find(activeTaskId) ?: return
+        if (ExecutionSteps.update(entry, value)) { save(); publish() }
+    }
     fun phoneProgress(method: String) {
         if (!running || cancellation.get()) return
         val current = progress ?: return

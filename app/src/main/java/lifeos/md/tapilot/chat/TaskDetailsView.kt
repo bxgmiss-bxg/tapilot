@@ -11,7 +11,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 internal fun TaskDetailsView(task: ChatTask, zh: Boolean) {
     val duration = task.durationMillis?.let { taskDurationLabel(it, zh) }
-    val hasProgress = task.plan.isNotEmpty() || task.phoneOperations > 0 || task.phase == "waiting_user"
+    val hasProgress = task.steps.isNotEmpty() || task.plan.isNotEmpty() || task.phoneOperations > 0 || task.phase == "waiting_user"
     if (!hasProgress && duration == null) return
     var expanded by remember { mutableStateOf(false) }
     val colors = MaterialTheme.colorScheme
@@ -29,7 +29,12 @@ internal fun TaskDetailsView(task: ChatTask, zh: Boolean) {
         Text(if (zh) "${task.phoneOperations} 次操作 · ${if (expanded) "收起进度" else "查看进度"}"
             else "${task.phoneOperations} operations · ${if (expanded) "Hide progress" else "Show progress"}", fontSize = 12.sp)
     }
+    if (task.phase == "running" && !expanded) task.steps.lastOrNull()?.let { step ->
+        Text("${step.number}. ${step.label(zh)} · ${step.stateLabel(zh)}", fontSize = 12.sp,
+            color = colors.onSurfaceVariant, modifier = Modifier.padding(vertical = 3.dp))
+    }
     if (expanded) {
+        ExecutionStepsView(task.steps, zh)
         task.plan.forEachIndexed { index, step ->
             // Only explicit plan progress, never infer success from attempted operations.
             val marker = if (index < task.currentStep) "✓" else if (index == task.currentStep && task.phase == "running") "›" else "·"
