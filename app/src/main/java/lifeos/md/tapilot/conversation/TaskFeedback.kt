@@ -19,6 +19,8 @@ object TaskFeedback {
         } else {
             parts += when (entry.optString("stopReason")) {
                 "app" -> local("应用关闭，任务已停止，进度已保存。", "The app closed; the task stopped and progress was saved.")
+                "user_handoff" -> local("已停止自动操作，现在可以手动处理。处理完后返回 Tapilot，点击“继续任务”。",
+                    "Automatic actions have stopped. You can now use the phone. Return to Tapilot and select Continue task when ready.")
                 "user" -> local("已按你的要求停止任务。", "Stopped at your request.")
                 "panel" -> local("打开对话面板改变了当前屏幕，任务已暂停，避免继续误操作。", "Opening the conversation panel changed the screen, so the task was paused to prevent unintended actions.")
                 "new_task" -> local("已停止当前任务，准备执行新任务。", "Stopped this task to start the new task.")
@@ -32,7 +34,7 @@ object TaskFeedback {
         }
         val operations = entry.optJSONArray("completedOperations")?.objects().orEmpty()
         val last = operations.lastOrNull()
-        if (status == "failed" && last?.optBoolean("success") == true && last.optString("result").isNotBlank()) {
+        if (last?.optBoolean("success") == true && last.optString("result").isNotBlank()) {
             parts += local("最近一步已通过画面核验：", "The last operation passed screen verification: ") + last.optString("result")
             parts += local("整个任务尚未确认完成。进度已保存，可继续处理。", "The whole task is not yet confirmed complete. Progress was saved; you can continue.")
         }
