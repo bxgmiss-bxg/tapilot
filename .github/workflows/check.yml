@@ -43,6 +43,11 @@ jobs:
           path: build/midscene-openai-live/
           if-no-files-found: warn
           retention-days: 7
+      - name: Prepare isolated Wrangler directory
+        if: ${{ always() && (steps.terra-test.outcome == 'success' || steps.terra-test.outcome == 'failure') && hashFiles('build/midscene-openai-live/index.html') != '' }}
+        run: |
+          mkdir -p .cloudflare-deploy
+          echo '{"private":true}' > .cloudflare-deploy/package.json
       - name: Publish Terra reports to Cloudflare Pages
         id: terra-pages
         if: ${{ always() && (steps.terra-test.outcome == 'success' || steps.terra-test.outcome == 'failure') && hashFiles('build/midscene-openai-live/index.html') != '' }}
@@ -52,7 +57,8 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4.151.1'
           packageManager: npm
-          command: pages deploy build/midscene-openai-live --project-name=tapilot-terra-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
+          workingDirectory: .cloudflare-deploy
+          command: pages deploy ../build/midscene-openai-live --project-name=tapilot-terra-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
       - name: Link online Terra report
         if: ${{ always() && steps.terra-pages.outcome == 'success' }}
         env:
@@ -144,6 +150,11 @@ jobs:
             exit 1
           fi
           echo "directory=${reports[0]%/index.html}" >> "$GITHUB_OUTPUT"
+      - name: Prepare isolated Wrangler directory
+        if: ${{ always() && steps.apk-report.outcome == 'success' }}
+        run: |
+          mkdir -p .cloudflare-deploy
+          echo '{"private":true}' > .cloudflare-deploy/package.json
       - name: Publish APK smoke report
         id: apk-pages
         if: ${{ always() && steps.apk-report.outcome == 'success' }}
@@ -153,7 +164,8 @@ jobs:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: '4.151.1'
           packageManager: npm
-          command: pages deploy "${{ steps.apk-report.outputs.directory }}" --project-name=tapilot-apk-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
+          workingDirectory: .cloudflare-deploy
+          command: pages deploy "../${{ steps.apk-report.outputs.directory }}" --project-name=tapilot-apk-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
       - name: Link APK report
         if: ${{ always() && steps.apk-pages.outcome == 'success' }}
         env:
