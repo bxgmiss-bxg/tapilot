@@ -161,6 +161,7 @@ class NativeConversationCoordinator(
         if (conversations.none { it.id == active() }) conversations.add(0, ChatConversation(active(), local("新对话", "New conversation")))
         val model = profile()
         emit(ChatState(ready = ready, language = AppLanguage.resolved(activity), dark = AppTheme.isDark(activity), paletteId = AppTheme.paletteId(activity),
+            showFirstTaskGuide = ready && FirstTaskGuide.visible(data),
             advancedMode = data.optBoolean("advanced"), executionMode = ExecutionMode.from(data), activeConversationId = active(), messages = messages, conversations = conversations,
             draft = data.optString("draft"), draftEpoch = draftEpoch, running = running,
             configured = if (data.optBoolean("chatgptConversation")) chatGpt.ready else model.optString("baseUrl").isNotBlank() && model.optString("modelName").isNotBlank() && model.optString("modelFamily").isNotBlank() && hasKey(preset),
@@ -190,6 +191,10 @@ class NativeConversationCoordinator(
                     submit(value.optString("text", data.optString("draft")))
                     if (preservedDraft != null) { data.put("draft", preservedDraft); draftEpoch++; save() }
                 }
+                "firstTaskExample" -> if (!running && pendingAttachment == null && data.optString("draft").isBlank()) {
+                    data.put("draft", FirstTaskGuide.example(chinese)); draftEpoch++; save(); focus()
+                }
+                "dismissFirstTask" -> if (!running) { data.put("firstTaskDismissed", true); save() }
                 "executionMode" -> {
                     val mode = ExecutionMode.entries.firstOrNull { it.wireValue == value.optString("text") }
                         ?: error("Unknown execution mode")
@@ -507,6 +512,7 @@ class NativeConversationCoordinator(
                         ?.put(if (status in listOf("succeeded", "waiting_user")) "reply" else "detail", message)
                     find(id)?.let {
                         TaskLifecycle.finish(it, status, if (stopped.get()) "" else finalPhase)
+                        if (FirstTaskGuide.verifiedPhoneTask(it)) data.put("firstTaskCompleted", true)
                         android.util.Log.i("TapilotPerformance", JSONObject().put("phase", "task.wall")
                             .put("taskId", id).put("status", status)
                             .put("createdAt", it.getLong("createdAt")).put("completedAt", it.getLong("completedAt"))
