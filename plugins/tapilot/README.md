@@ -594,3 +594,14 @@ negative assertion, one successful visual action and the resulting screen.
 This is model integration coverage, not Android hardware acceptance. CI uploads
 `result.json` and native HTML reports for seven days, including failures. The
 private key and temporary configuration are deleted and never uploaded.
+
+CI also publishes this synthetic-data report bundle to the dedicated Cloudflare
+Pages Direct Upload project `tapilot-terra-reports` (production branch `main`).
+Set repository secret `CLOUDFLARE_API_TOKEN` with Account / Cloudflare Pages / Edit
+permission and variable `CLOUDFLARE_ACCOUNT_ID`. Each run uses a separate
+`run-<id>-<attempt>` preview branch, and its CI Summary links to the interactive
+report index. Publication also runs after test failures; a deployment failure
+fails the job without changing the model test verdict. Pages previews are public
+unless access is configured separately, and their retention is independent of
+GitHub's seven-day artifact retention. This project is separate from the existing
+Android-device report Worker and requires Pages permissions on the token.

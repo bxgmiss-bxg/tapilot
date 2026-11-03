@@ -32,6 +32,7 @@ jobs:
       - run: npm ci --prefix plugins/tapilot
       - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
       - name: Verify real model assertions and visual action through Tapilot
+        id: terra-test
         env:
           TAPILOT_OPENAI_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
         run: node plugins/tapilot/scripts/verify-openai-live.mjs
@@ -42,6 +43,27 @@ jobs:
           path: build/midscene-openai-live/
           if-no-files-found: warn
           retention-days: 7
+      - name: Publish Terra reports to Cloudflare Pages
+        id: terra-pages
+        if: ${{ always() && (steps.terra-test.outcome == 'success' || steps.terra-test.outcome == 'failure') && hashFiles('build/midscene-openai-live/index.html') != '' }}
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.1'
+          packageManager: npm
+          command: pages deploy build/midscene-openai-live --project-name=tapilot-terra-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
+      - name: Link online Terra report
+        if: ${{ always() && steps.terra-pages.outcome == 'success' }}
+        env:
+          REPORT_URL: ${{ steps.terra-pages.outputs.deployment-url }}
+          TEST_OUTCOME: ${{ steps.terra-test.outcome }}
+        run: |
+          {
+            echo '### Midscene Terra 6.1 report'
+            echo "[Open interactive HTML reports]($REPORT_URL)"
+            echo "Revision: $GITHUB_SHA; test outcome: $TEST_OUTCOME"
+          } >> "$GITHUB_STEP_SUMMARY"
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e
     runs-on: ubuntu-latest
