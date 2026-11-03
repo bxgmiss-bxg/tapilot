@@ -32,7 +32,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tapilot"
-        android:usesCleartextTraffic="false">
+        android:usesCleartextTraffic="true">
         <service android:name=".chatgpt.ChatGptLoginService" android:exported="false" android:foregroundServiceType="dataSync" />
         <activity
             android:name=".MainActivity"

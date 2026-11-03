@@ -57,7 +57,8 @@ class ModelTransport(
                     Base64.getDecoder().decode(params.getString("bodyBase64")).toRequestBody()
                 } else null
                 val request = builder.method(params.optString("method", "POST"), body).build()
-                require(request.url.isHttps) { "Model URL must use HTTPS" }
+                // Allow HTTP for local/self-hosted model endpoints. OkHttp only accepts
+                // http/https URLs; the scheme is validated upstream in ModelProfiles.endpoint.
                 // Share one deadline across reconnection attempts. Only repeat this model
                 // completion, never the agent turn or already executed phone tools.
                 val deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(READ_TIMEOUT_MS.toLong())
