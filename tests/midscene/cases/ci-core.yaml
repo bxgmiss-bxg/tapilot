@@ -15,7 +15,10 @@ cases:
           Chinese equivalents). No model, permission or runtime error is shown.
       - aiAct: >-
           Open this task's Activity execution records, select the operation that inspected
-          Settings, and open its Replay Player screenshot. Do not treat instruction text
+          Settings, and open its Replay Player. Select a recorded frame showing the actual
+          Android Settings categories Network & internet and Connected devices (or their
+          Chinese equivalents). Leave that frame visibly open for the next independent
+          assertion; do not return to chat in this step. Do not treat instruction text
           or the assistant's answer as screenshot evidence.
       - aiAssert: >-
           The execution replay shows an actual Android Settings screen containing Network &
