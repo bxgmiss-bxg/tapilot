@@ -34,7 +34,6 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
     private var target: Button? = null
     private var leased = false
     private var generation = 0
-    private val timeout = Runnable { close(); status = "Experiment timed out; display released"; changed() }
     var bitmap: Bitmap? = null; private set
     var frames = 0; private set
     var taps = 0; private set
@@ -92,7 +91,6 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
             }
             showFixture()
             status = "Display $displayId created; waiting for rendered pixels"
-            handler.postDelayed(timeout, 120_000)
             changed()
         } catch (failure: Exception) { close(); throw failure }
     }
@@ -105,11 +103,11 @@ internal class BackgroundDisplayProbe(private val host: Activity, private val ch
             setBackgroundColor(Color.rgb(224, 245, 255))
         }
         layout.addView(TextView(panel.context).apply {
-            text = "Tapilot secondary display\nDisplay $displayId"; textSize = 22f; gravity = Gravity.CENTER
+            text = lifeos.md.tapilot.AppLanguage.wrap(host).getString(lifeos.md.tapilot.R.string.shell_fixture_title); textSize = 22f; gravity = Gravity.CENTER
         })
         target = Button(panel.context).apply {
-            text = "Fixture taps: 0"
-            setOnClickListener { taps++; text = "Fixture taps: $taps"; snapshotRequested = true; changed() }
+            text = lifeos.md.tapilot.AppLanguage.wrap(host).getString(lifeos.md.tapilot.R.string.shell_fixture_count, 0)
+            setOnClickListener { taps++; text = lifeos.md.tapilot.AppLanguage.wrap(host).getString(lifeos.md.tapilot.R.string.shell_fixture_count, taps); snapshotRequested = true; changed() }
         }
         layout.addView(target, LinearLayout.LayoutParams(360, 100))
         panel.setContentView(layout)

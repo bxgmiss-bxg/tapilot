@@ -140,8 +140,8 @@ Tapilot 日常自动化不需要 ADB。
 
 ## 可选后台屏实验
 
-Debug 版本提供“设置 → 开发实验 → 后台屏技术验证”，默认关闭。
-必须先[授权并连接可选 Shell 辅助进程](docs/experiments/shell-assisted-display.md)，才能开启虚拟屏；仅有无障碍权限不够。可在手机内通过系统无线调试配对并启动，无需电脑。
+Debug 版本提供“设置 → 开发实验 → 后台屏幕（实验性）”，默认关闭。
+必须先[授权并连接可选 Shell 辅助进程](docs/experiments/shell-assisted-display.zh.md)，才能开启虚拟屏；仅有无障碍权限不够。提供通知栏配对、自动查找本机端口和可选的重启恢复，全程无需电脑。
 实验检查独立渲染、截图、定向手势和测试应用启动，尚不支持后台执行 Agent 任务。
 具体操作和限制见[实验说明](docs/experiments/background-display.md)。Beta 和 Release 不包含实验台。
 

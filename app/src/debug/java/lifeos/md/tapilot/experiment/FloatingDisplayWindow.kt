@@ -34,7 +34,7 @@ internal class FloatingDisplayWindow(
     private fun text(chinese: String, english: String) = if (zh) chinese else english
     private fun dp(value: Int) = (value * host.resources.displayMetrics.density).toInt()
 
-    fun show() {
+    fun show(atBottom: Boolean = false) {
         check(probe.active) { "Start the experiment first" }
         check(Settings.canDrawOverlays(host)) { "Allow display over other apps first" }
         if (root != null) return
@@ -60,6 +60,10 @@ internal class FloatingDisplayWindow(
             setOnTouchListener { view, event -> onPreviewTouch(view, event) }
         }
         val previewHeight = width * BackgroundDisplayProbe.HEIGHT / BackgroundDisplayProbe.WIDTH
+        if (atBottom) {
+            params.x = (bounds.width() - width - dp(12)).coerceAtLeast(0)
+            params.y = (bounds.height() - previewHeight - dp(80)).coerceAtLeast(0)
+        }
         panel.addView(image, FrameLayout.LayoutParams(width, previewHeight))
         // Small visual controls with generous touch targets, overlaid on the capture.
         val handle = FrameLayout(host).apply {

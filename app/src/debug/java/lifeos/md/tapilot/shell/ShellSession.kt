@@ -17,6 +17,8 @@ internal object ShellSession {
     private var helper: IDisplayHelper? = null
     private var tokenFile: File? = null
     var changed: (() -> Unit)? = null
+    var connectionChanged: (() -> Unit)? = null
+    private fun notifyChanged() { connectionChanged?.invoke(); changed?.invoke() }
     val ready: Boolean get() = helper?.asBinder()?.isBinderAlive == true
     fun requireHelper(): IDisplayHelper = checkNotNull(helper?.takeIf { ready }) {
         "Authorize and connect the optional shell helper first"
@@ -30,7 +32,7 @@ internal object ShellSession {
         consent.arm(token, SystemClock.elapsedRealtime())
         tokenFile = File(context.filesDir, "shell-consent").apply { writeText(token) }
         main.postDelayed({ if (!ready) revoke() }, 300_000)
-        changed?.invoke()
+        notifyChanged()
     }
     fun accept(token: String?, binder: IBinder?, caller: Int): Boolean {
         check(Looper.myLooper() == Looper.getMainLooper())
@@ -42,7 +44,7 @@ internal object ShellSession {
         candidate.watchClient(lifetime)
         helper = candidate
         main.removeCallbacksAndMessages(null)
-        changed?.invoke()
+        notifyChanged()
         return true
     }
     fun revoke() {
@@ -50,6 +52,6 @@ internal object ShellSession {
         main.removeCallbacksAndMessages(null)
         val previous = helper; helper = null
         runCatching { previous?.shutdown() }
-        changed?.invoke()
+        notifyChanged()
     }
 }

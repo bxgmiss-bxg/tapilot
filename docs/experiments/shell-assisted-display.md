@@ -1,51 +1,55 @@
-# Optional shell-assisted virtual display (Experimental)
+# Shell-assisted background screen (Experimental)
 
-Virtual displays now require **both explicit in-app authorization and a live shell helper**. Accessibility permission alone cannot enable them. This is Debug-only, off by default, and does not change the normal accessibility-based Agent path or enable production background tasks.
+Debug builds only; off by default. This experiment checks a separate display and floating input. It does not yet execute Agent tasks in the background. Beta and Release builds contain neither this setup flow nor its recovery permissions.
 
-## Connect on the phone (no computer)
+## Set up on your phone
 
-Android 12+ is required by the experimental helper. Keep the phone connected to Wi-Fi. This feature uses Android Wireless debugging; it is separate from Tapilot's computer-to-phone wireless-control server.
+Android 12 or later is required; Android 14+ provides independent display focus. Keep the phone on Wi-Fi during setup. No computer or USB cable is required.
 
-1. Open **Settings → Developer experiments → Secondary display probe** in the Debug app.
-2. Select **Pair and connect on this phone**, then **Open Developer options**. Enable **Wireless debugging** in Android settings.
-3. For first pairing, put Settings and Tapilot in split screen. In Wireless debugging, choose **Pair device with pairing code** and keep that dialog open. Enter its **pairing port** and **six-digit code** in Tapilot, then select **Pair this phone**. The host is fixed to this phone's loopback address; do not enter an IP address.
-4. After pairing succeeds, note the **connection port** on the main Wireless debugging page. It is different from the pairing port and can change after restarting Wireless debugging.
-5. In the experiment select **Authorize shell helper** and accept the explanation. Reopen **Pair and connect on this phone**, enter the connection port and select **Connect and start authorized helper** within five minutes.
-6. Confirm **Shell helper authorized and connected**, then start the virtual display. Enable overlay permission separately for the floating preview.
-7. Select **Revoke shell authorization** to release the display and helper. Closing the experiment activity also revokes authorization. An app restart requires fresh authorization and connection, but pairing normally does not need repeating.
+1. Open **Settings → Developer experiments → Background screen (Experimental)**.
+2. Read the capability explanation and select **Agree and set up**. **Restore the connection automatically** is an optional, initially unchecked choice with its own explanation.
+3. Follow the links to enable Developer options, USB debugging and Wireless debugging. USB debugging is needed for automatic recovery; enabling it does not require a cable. Already-enabled Developer options are skipped. If a phone cannot report the setting correctly, use **Complete** to continue manually.
+4. Allow pairing notifications when prompted. Open **Pair device with pairing code** in system Wireless debugging and keep that dialog open.
+5. Pull down the notification shade. In the Tapilot notification, select **Enter code**, enter the six digits and submit. Do not switch apps or dismiss the system pairing dialog before pairing finishes.
+6. Tap the connection notification to return to Tapilot. Pairing and connection ports are discovered automatically on this phone. When shell assistance is connected, select **Try the background screen**.
+7. The trial creates an internal test page. Select **Allow floating preview** if prompted and return. Tap the button inside the floating screen; the trial reports success only after an actual click reaches the test page and frames have been captured. No personal app is opened by this trial.
 
-Pairing codes are not saved. The ADB identity is stored only in private app storage excluded from backup. **Forget local pairing key** deletes that identity and revokes the helper; also forget **Tapilot local helper** in Android's paired-device list. Pairing alone never authorizes display creation. No wireless debugging, Wi-Fi or developer setting is enabled automatically.
+The helper connection and the display compatibility check are distinct. A connected helper does not guarantee a particular app will run on a secondary display. Unsupported operations report failure; input never falls back to the main screen.
 
-The initial UI uses split screen to keep Android's short-lived pairing dialog alive. If the device does not support split screen or cancels pairing when focus changes, this flow needs device-specific validation; there is no claim of universal OEM support.
+## Subsequent use and recovery
 
-## Optional computer fallback
+Your authorization and pairing identity remain until revoked or cleared. Closing setup does not revoke authorization. Closing the display trial releases its display; reconnecting the helper never recreates that display or resumes a task.
 
-An already-authorized computer ADB connection is still supported. After in-app consent, run `python3 scripts/start-shell-helper.py --serial <device> --package lifeos.md.tapilot.e2everify`. The script uses Debug `run-as`, does not pair automatically and is not a release-build activation protocol. The phone-only path starts the same restricted helper directly through local ADB and does not require that script.
+The foreground service keeps a visible management notification and retries failed connections with bounded backoff. If Wireless debugging is still enabled, it attempts to reconnect using local discovery and the remembered port. An app process death terminates its helper through Binder death; a permitted service restart creates a fresh authenticated connection.
 
-## Capability boundary
+With **Restore the connection automatically** enabled, the paired shell requests Android’s `WRITE_SECURE_SETTINGS` development permission for this Debug app. The setup page checks the actual grant; opting in alone does not mean recovery is available. Tapilot uses that permission only to request `adb_wifi_enabled=1`, while authorization, recovery consent, Wi-Fi and USB debugging are present. Boot and app-update broadcasts can restart the authorized service. Android still controls network trust prompts; a new network may require you to approve Wireless debugging in Settings. Manufacturer battery restrictions, force-stop and denied permissions can require reopening Tapilot or repairing settings manually. Opening the app restores an authorized service; it never opens a display.
 
-The shell process exposes only display creation, bounded touch paths, explicit component launch, display release and shutdown. All input and launches require the current nonzero owned display ID. No arbitrary command endpoint or primary-display fallback is exposed. Input coordinates and duration are validated. Display creation uses Android display flags for touch and, on supported versions, trusted display and independent focus; unsupported permissions fail closed.
+Recovery does not change Wi-Fi networks, enable accessibility or continue an interrupted task. Turning recovery off stops system-setting restoration but allows reconnecting to already-enabled Wireless debugging. The platform permission may remain granted until removed by Android or uninstall; the app's persisted consent gate disables its use immediately.
 
-The exported handoff provider requires Android's DUMP permission, verifies shell UID 2000, and consumes a one-use authorization token. The helper checks the calling application UID on every Binder request and watches client death. The application watches helper death and closes its preview. Display leases expire after two minutes on both sides; the helper process has a ten-minute maximum lifetime. Authorization is never persisted as an always-enabled preference. Consent values are passed through standard input rather than command-line arguments or logs.
+## Stop, revoke or forget
 
-This is an independently implemented experiment using Android APIs. It does not include Mika source code or copy. Android behavior still needs verification per device. Never treat a returned launch or injection result as proof that the requested app action happened; inspect the actual captured screen.
+- **Stop and release** closes the current display without disabling future use.
+- **Revoke shell authorization** in setup or the persistent notification stops the helper, closes its display and disables automatic recovery. Later callbacks cannot restore authorization.
+- **Forget pairing** also deletes the private ADB identity. Remove **Tapilot** from Android's **Wireless debugging → Paired devices** to clear the system-side record.
 
-## Verification
+## When setup needs help
 
-The [phone-only verification record](../../tests/verification/local-adb-2026-11-03.md) covers in-app pairing, local helper startup, reuse of pairing, consent rejection, floating input, revocation, wireless disconnection and key deletion on Android 15.
+| Situation | Next action |
+| --- | --- |
+| No pairing notification | Allow app notifications and the Phone pairing notification channel. Pull down the shade if no heads-up banner appears. |
+| Wrong or expired code | Reopen the system pairing dialog and enter its current code. Codes are never saved. |
+| Automatic discovery unavailable | Expand **Other connection methods**. Use split screen to keep the system pairing dialog open and enter its pairing port and code. |
+| Paired but not connected | Retry. If discovery still fails, enter the separate connection port shown on the main Wireless debugging page. |
+| Wireless debugging turned off | Enable it manually, or opt into automatic recovery while a paired connection is available. |
+| Recovery permission refused | Keep using manual Wireless debugging restoration; pairing remains usable. On the tested OPPO Find N / Android 14, the shell grant was refused with `GRANT_RUNTIME_PERMISSIONS`; notification pairing and floating input still passed. |
+| Device has no Wireless debugging | Expand Other connection methods and select Prepare computer fallback; run the shown repository command on an already authorized computer. The normal setup requires working phone-side Wireless debugging. |
 
-Android 15 emulator verification passed for the consent gate, floating fixture taps, Clock launch and stopwatch control, primary focus, revocation and helper-death cleanup. See the [steps and screenshots](../../tests/verification/shell-display-2026-11-03.md). This does not establish OEM compatibility or production background Agent support.
+## Implementation boundary
 
-## 中文说明
+Discovery uses Android NSD and accepts only addresses belonging to this device. All ADB sockets use `127.0.0.1`. Notifications use an explicit, non-exported service and a RemoteInput PendingIntent; pairing codes are not stored or logged. The ADB key lives in private storage excluded from backup.
 
-虚拟屏必须同时满足“应用内明确授权”和“Shell 辅助进程已连接”，仅开启无障碍权限不能使用。功能仅在 Debug 实验中提供，默认关闭，不改变普通 Agent 的无障碍执行方式。
+Durable user consent is separate from a five-minute, single-use bootstrap token. The DUMP-protected handoff provider checks shell UID 2000. Every helper Binder request checks the application UID. The helper exposes only owned-display creation, bounded gestures, explicit component launch, release and shutdown. No arbitrary shell-command endpoint or display-0 fallback is exposed. Client death and revocation terminate the helper; display resources follow the trial lifecycle rather than an arbitrary two-minute timer.
 
-可直接在手机内配对和连接，无需电脑：在系统中开启无线调试，将设置与 Tapilot 分屏，保持配对码弹窗打开，在 Tapilot 输入配对端口和六位配对码。配对后回到实验页授权，再填写无线调试主页的连接端口并启动辅助。两个端口不同，配对码不会保存，也不会自动开启无线调试。撤销授权、退出实验或连接断开会释放虚拟屏；进程重启后需要重新授权。虚拟屏每次最多运行两分钟。
+LibADB Android BC 3.5.1 and Bouncy Castle provide the ADB protocol and cryptography; their notices are packaged in the APK. Pairing has a 30-second socket deadline, startup has a 35-second deadline, and retry intervals grow to 60 seconds. All setup code and wording are independently written; no Mika source or copy is included.
 
-The Debug client uses [LibADB Android BC 3.5.1](https://github.com/osservatorionessuno/libadb-android-bc/tree/3.5.1) and Bouncy Castle. A local-only relay bounds pairing to 30 seconds, including stalled TLS handshakes. Dependency notices are included in the APK.
-
-## API references
-
-- [DisplayManager and display flags](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android15-release/core/java/android/hardware/display/DisplayManager.java)
-- [InputManager input injection](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android15-release/core/java/android/hardware/input/InputManager.java)
-- [Binder caller identity](https://developer.android.com/reference/android/os/Binder#getCallingUid())
+See [guided-flow verification](../../tests/verification/guided-shell-2026-11-03.md) and [the Chinese setup guide](shell-assisted-display.zh.md). Earlier [manual phone-pairing evidence](../../tests/verification/local-adb-2026-11-03.md) describes the preceding implementation, not validation of this guided flow.

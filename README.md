@@ -161,9 +161,9 @@ license identifiers and redistribution work still required before release.
 
 ## Optional background-display experiment
 
-Debug builds offer **Settings → Developer experiments → Secondary display probe**.
+Debug builds offer **Settings → Developer experiments → Background screen (Experimental)**.
 It requires [explicit shell-helper authorization and connection](docs/experiments/shell-assisted-display.md),
-supports on-device Wireless debugging pairing without a computer,
+offers guided notification pairing, automatic local connection and optional restart recovery without a computer,
 is off by default, and checks isolated rendering, captured frames, targeted
 gestures and test-app launches. It does not run agent tasks in the background.
 See the [experiment protocol and limits](docs/experiments/background-display.md).

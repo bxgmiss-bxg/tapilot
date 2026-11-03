@@ -159,9 +159,9 @@ fun NativeSettingsScreen(coordinator: NativeConversationCoordinator, activity: A
                 }
                 if (activity.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE != 0) {
                     Group(label("开发实验", "Developer experiments")) {
-                        SettingRow(label("后台屏技术验证", "Secondary display probe"), label("默认关闭", "Off by default")) {
+                        SettingRow(label("后台屏幕（实验性）", "Background screen (Experimental)"), label("默认关闭", "Off by default")) {
                             activity.startActivity(android.content.Intent().setClassName(activity,
-                                "lifeos.md.tapilot.experiment.BackgroundDisplayActivity"))
+                                "lifeos.md.tapilot.shell.ShellSetupActivity"))
                         }
                     }
                 }

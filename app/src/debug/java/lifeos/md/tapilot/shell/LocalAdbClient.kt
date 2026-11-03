@@ -12,7 +12,7 @@ internal class LocalAdbClient(context: Context) : AutoCloseable {
     private val manager = object : AbsAdbConnectionManager() {
         override fun getPrivateKey() = identity.key
         override fun getCertificate() = identity.certificate
-        override fun getDeviceName() = "Tapilot local helper"
+        override fun getDeviceName() = "Tapilot"
     }.apply { setApi(Build.VERSION.SDK_INT); setTimeout(15, TimeUnit.SECONDS); setThrowOnUnauthorised(true) }
     @Volatile private var stream: AdbStream? = null
     @Volatile private var pairing: PairingDeadline? = null
@@ -31,6 +31,12 @@ internal class LocalAdbClient(context: Context) : AutoCloseable {
         check(!closed)
         check(manager.connect("127.0.0.1", port))
         check(!closed)
+        if (ShellPreferences(context).recovery && context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            // Fixed capability, only after explicit recovery consent; never accepts a user command.
+            manager.openStream("shell:pm grant ${LocalAdbInput.quote(context.packageName)} android.permission.WRITE_SECURE_SETTINGS").use { grant ->
+                grant.openInputStream().use { it.readBytes() }
+            }
+        }
         val command = "CLASSPATH=${LocalAdbInput.quote(context.applicationInfo.sourceDir)} exec app_process /system/bin " +
             "lifeos.md.tapilot.shell.DisplayHelperMain ${LocalAdbInput.quote(context.packageName)} ${android.os.Process.myUid()}"
         val opened = manager.openStream("shell:$command")

@@ -29,8 +29,7 @@ internal class ShellDisplayService(context: Context, private val appUid: Int) : 
     private var width = 0
     private var height = 0
     private var client: IBinder? = null
-    private val expiry = Runnable { releaseOwned() }
-    init { main.postDelayed({ terminate() }, 600_000) }
+    // The app Binder owns the lifetime. Client death or explicit revocation terminates us.
     private fun authenticate() { check(Binder.getCallingUid() == appUid) { "Wrong caller" } }
     private fun <T> onMain(block: () -> T): T {
         val task = FutureTask(block)
@@ -71,7 +70,6 @@ internal class ShellDisplayService(context: Context, private val appUid: Int) : 
                 val created = checkNotNull(displays.createVirtualDisplay("Tapilot authorized shell display", width, height, 160, surface, flags))
                 check(created.display.displayId > 0)
                 display = created; this.width = width; this.height = height
-                main.postDelayed(expiry, 120_000)
                 created.display.displayId
             } finally { surface.release() }
         }
@@ -127,7 +125,7 @@ internal class ShellDisplayService(context: Context, private val appUid: Int) : 
         }
     }
     override fun release(displayId: Int) { authenticate(); onMain { if (display == null) return@onMain; owned(displayId); releaseOwned() } }
-    private fun releaseOwned() { main.removeCallbacks(expiry); display?.release(); display = null }
+    private fun releaseOwned() { display?.release(); display = null }
     override fun shutdown() { authenticate(); onMain { releaseOwned(); main.postDelayed({ terminate() }, 100) } }
     private fun terminate() { releaseOwned(); Process.killProcess(Process.myPid()) }
 }
