@@ -42,11 +42,18 @@ cases:
       - aiAct: >-
           Wait until Tapilot's task is visibly running and operating Settings, then return
           to Tapilot via Launch or Android recent apps and press Stop while the task is
-          still running. Fail if it already completed or failed before you could stop it.
-          Do not operate Settings yourself. Stop interacting once Stop is pressed.
+          still active. Require the chat to show Working and an available Stop control
+          before pressing it. Returning to chat pauses phone interaction; an individual
+          operation's paused/failed record is not the conversation task's terminal status.
+          Fail if the conversation task itself already reached a terminal state before
+          Stop could be pressed. Do not operate Settings yourself. Finish this action
+          immediately after pressing Stop; the next steps wait for shutdown and independently
+          assert the terminal outcome. Do not evaluate the resulting reply in this action.
       - task.waitForIdle: {}
       - aiAssert: >-
-          The task has stopped/cancelled status, not completed or failed. No running progress
+          The conversation task explicitly says Stopped at your request (or its Chinese
+          equivalent), not a completed or failed terminal task. A historical phone-operation
+          record may mention interruption when returning to chat. No running progress
           indicator remains and the composer is available for a fresh request.
       - aiAct: >-
           In this same conversation submit exactly: "取消刚才的设置任务，不要继续。新任务：只回复 CANCEL-RECOVERY-OK，不操作手机，不用语音。"
