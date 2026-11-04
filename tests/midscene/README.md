@@ -409,7 +409,8 @@ still determines recovery success. The wait is bounded to 60 seconds.
 ### Automatic APK core flows on hosted CI
 
 Every main push and trusted manual dispatch also runs `APK install and Midscene
-core flows` on four isolated Android 35 Google APIs x86_64 emulators. It builds and installs
+core flows` on four isolated Android 35 Google APIs x86_64 emulators with
+three-button system navigation, so file-picker drawer swipes do not trigger Back. It builds and installs
 the verification APK, records its source SHA and APK SHA-256, and runs eleven
 cases: UI-01 through UI-05, DRAFT-02, DRAFT-03, CHAT-01, DRAFT-01, CORE-01 and CORE-02.
 The observer uses `gpt-6.1-terra` through the official Responses API. The installed
@@ -439,8 +440,9 @@ job explicitly opts into the resilience profile. Four disjoint `ci-lane-1` throu
 `ci-lane-4` tags partition exactly the same eleven smoke, draft and core cases,
 without network faults. Definition checks reject missing or duplicate lane assignments.
 Each matrix job owns one runner and one emulator (5554); jobs run concurrently
-while cases on each device stay serial. A failed lane does not cancel its peers. All devices install the
-same APK and preserve separate identity/log/screenshot evidence. The final job uses Midscene's `ReportMergingTool` to combine all four native reports
+while cases on each device stay serial. A failed lane does not cancel its peers. Each runner builds the
+same source revision and preserves its own APK digest, identity, logs and screenshots.
+Emulator image installation overlaps APK compilation; neither step is skipped. The final job uses Midscene's `ReportMergingTool` to combine all four native reports
 and preserve their execution evidence. The pinned action renders their native
 case summaries. Missing lanes, missing/duplicate cases, retries and failures fail
 the aggregation gate; there is no custom HTML report wrapper. All eleven cases use zero retries. The disposable verification app is pre-granted

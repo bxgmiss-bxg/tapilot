@@ -37,4 +37,9 @@ done
 for setting in window_animation_scale transition_animation_scale animator_duration_scale; do
   adb -s "$TAPILOT_E2E_DEVICE_ID" shell settings put global "$setting" 0
 done
+# Edge swipes in DocumentsUI must open its drawer, not trigger system Back.
+# This changes only the disposable emulator, never a developer's connected phone.
+adb -s "$TAPILOT_E2E_DEVICE_ID" shell cmd overlay enable-exclusive --category com.android.internal.systemui.navbar.threebutton
+adb -s "$TAPILOT_E2E_DEVICE_ID" shell cmd overlay list > build/apk-midscene/overlays.txt
+grep -F '[x] com.android.internal.systemui.navbar.threebutton' build/apk-midscene/overlays.txt
 bash scripts/run-apk-ci-smoke.sh
