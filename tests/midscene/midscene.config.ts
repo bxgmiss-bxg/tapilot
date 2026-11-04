@@ -89,7 +89,7 @@ if (ciLane && (!/^[1-4]$/.test(ciLane) || process.env.CI !== 'true' || packageNa
 }
 
 export default defineTestProject<Context>({
-  test: { maxConcurrency: 1, testTimeout: 30 * 60_000 },
+  test: { maxConcurrency: 1, testTimeout: (ciLane ? 6 : 30) * 60_000 },
   projects: [{
     name: ciLane ? `android-${ciLane}` : 'android', setup, retry: 0,
     files: { include: ciLane ? [`.ci-cases/lane-${ciLane}/*.yaml`] : ['cases/**/*.yaml'] },
@@ -110,9 +110,9 @@ export default defineTestProject<Context>({
     defineNode({
       name: 'task.waitForIdle',
       description: 'Wait for the native task service to settle without performing UI actions or inferring a pause from a still image.',
-      inputSchema: z.strictObject({}),
-      async execute({ context, signal }: NodeExecutionContext<unknown, Context>) {
-        const data = await context.fixtures.waitForTaskIdle(signal);
+      inputSchema: z.strictObject({ timeoutMs: z.number().int().min(1).max(25 * 60_000).optional() }),
+      async execute({ context, signal, input }: NodeExecutionContext<{ timeoutMs?: number }, Context>) {
+        const data = await context.fixtures.waitForTaskIdle(signal, input.timeoutMs ?? (ciLane ? 120_000 : undefined));
         return { summary: 'Native task service settled; verify the actual UI outcome next', data };
       },
     }),

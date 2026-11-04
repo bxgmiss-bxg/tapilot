@@ -57,7 +57,7 @@ cases:
           Stop could be pressed. Do not operate Settings yourself. Finish this action
           immediately after pressing Stop; the next steps wait for shutdown and independently
           assert the terminal outcome. Do not evaluate the resulting reply in this action.
-      - task.waitForIdle: {}
+      - task.waitForIdle: { timeoutMs: 60000 }
       - aiAssert: >-
           The conversation task explicitly says Stopped at your request (or its Chinese
           equivalent), not a completed or failed terminal task. A historical phone-operation

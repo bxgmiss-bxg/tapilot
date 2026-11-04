@@ -33,7 +33,10 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
       else {
         const node = Object.keys(step)[0];
         assert.ok(node === 'app.open' || /^(fault\.|fixture\.|wireless\.|task\.)/.test(node), `${id}: UI work must use aiAct or independent aiAssert`);
-        assert.deepEqual(step[node], {}, `${id}: fixtures have no hidden UI instructions`);
+        if (node === 'task.waitForIdle' && 'timeoutMs' in step[node]) {
+          assert.deepEqual(Object.keys(step[node]), ['timeoutMs'], `${id}: only an idle deadline is configurable`);
+          assert.ok(Number.isInteger(step[node].timeoutMs) && step[node].timeoutMs > 0 && step[node].timeoutMs <= 25 * 60_000, `${id}: bounded positive idle deadline required`);
+        } else assert.deepEqual(step[node], {}, `${id}: fixtures have no hidden UI instructions`);
         if (node === 'fixture.requireRejectedAuth') assert.ok(test.tags.includes('auth-fixture'), `${id}: rejected credentials require the isolated auth profile`);
         if (node.startsWith('fault.') || node.startsWith('wireless.')) assert.ok(test.tags.includes('resilience'), `${id}: fault/control fixtures need resilience tag`);
       }
