@@ -44,7 +44,11 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
   apk-midscene:
-    name: APK install and Midscene core flows
+    name: APK core flows (${{ matrix.lane }}/4)
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [1, 2, 3, 4]
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -109,7 +113,7 @@ jobs:
           MIDSCENE_MODEL_PROTOCOL: openai-responses
           MIDSCENE_INCLUDE_TAGS: smoke,draft-restart,share-draft,ci-core
           MIDSCENE_EXCLUDE_TAGS: ''
-          TAPILOT_E2E_CI_PARALLEL: '1'
+          TAPILOT_E2E_CI_LANE: ${{ matrix.lane }}
           TAPILOT_E2E_DEVICE_ID: emulator-5554
           TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
           TAPILOT_E2E_SCREEN_INFO: wm
@@ -117,7 +121,7 @@ jobs:
         with:
           working-directory: tests/midscene
           command: bash ../../scripts/run-apk-ci-emulator.sh
-          artifact-name: midscene-apk-${{ github.run_id }}-${{ github.run_attempt }}
+          artifact-name: midscene-apk-shard-${{ matrix.lane }}
           retention-days: '7'
           # Pages publishing below matches delinoio/apps#893 and its token scope.
           publish-pages: 'false'
@@ -125,7 +129,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apk-midscene-${{ github.sha }}
+          name: apk-midscene-${{ github.sha }}-${{ matrix.lane }}
           path: |
             build/apk-midscene/
             tests/midscene/midscene_run/
@@ -134,6 +138,34 @@ jobs:
             tests/midscene/cases/.midscene/test-results/
           include-hidden-files: true
           retention-days: 7
+
+  apk-report:
+    name: Complete Midscene APK report
+    needs: apk-midscene
+    if: ${{ always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+      - run: npm ci --prefix tests/midscene
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: midscene-apk-shard-*
+          path: tests/midscene/shard-results
+      - name: Merge all native Midscene reports and check coverage
+        id: apk-test
+        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
+        with:
+          working-directory: tests/midscene
+          command: node scripts/merge-ci-reports.mjs
+          artifact-name: midscene-apk-complete-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: '7'
+          publish-pages: 'false'
       - name: Locate APK smoke HTML report
         id: apk-report
         if: ${{ always() && (steps.apk-test.outcome == 'success' || steps.apk-test.outcome == 'failure') }}

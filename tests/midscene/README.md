@@ -438,10 +438,12 @@ readiness and cleanup; its exit status propagates through the action. The hosted
 job explicitly opts into the resilience profile. Four disjoint `ci-lane-1` through
 `ci-lane-4` tags partition exactly the same eleven smoke, draft and core cases,
 without network faults. Definition checks reject missing or duplicate lane assignments.
-Each native Midscene project owns one emulator (5554, 5556, 5558 or 5560); projects
-run concurrently while cases on each device stay serial. All devices install the
-same APK and preserve separate identity/log/screenshot evidence. One Midscene run
-produces one complete native report and Summary; there is no custom report wrapper. All eleven cases use zero retries. The disposable verification app is pre-granted
+Each matrix job owns one runner and one emulator (5554); jobs run concurrently
+while cases on each device stay serial. A failed lane does not cancel its peers. All devices install the
+same APK and preserve separate identity/log/screenshot evidence. The final job uses Midscene's `ReportMergingTool` to combine all four native reports
+and preserve their execution evidence. The pinned action renders their native
+case summaries. Missing lanes, missing/duplicate cases, retries and failures fail
+the aggregation gate; there is no custom HTML report wrapper. All eleven cases use zero retries. The disposable verification app is pre-granted
 notification permission before screenshots; microphone and other permissions are
 not granted. Restart assertions wait for the chat to become visible, then
 independently check the retained text and attachment. The fresh emulator contains no

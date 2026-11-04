@@ -25,8 +25,8 @@ function createDevice(serial: string) {
 }
 const setup = defineProjectSetup<Context>({
   name: 'android',
-  async setup({ onTeardown, project }) {
-    const serial = String(project.variables.serial || process.env.TAPILOT_E2E_DEVICE_ID || '');
+  async setup({ onTeardown }) {
+    const serial = process.env.TAPILOT_E2E_DEVICE_ID;
     if (!serial) throw new Error('Set TAPILOT_E2E_DEVICE_ID explicitly; the suite never selects the first device');
     const adb = (args: string[]) => execFileSync('adb', ['-s', serial, ...args], { encoding: 'utf8', timeout: 15_000 }).trim();
     if (adb(['get-state']) !== 'device') throw new Error('Selected Android device is not ready');
@@ -83,22 +83,21 @@ const fixtureNode = (name: string, execute: (fixtures: DeviceFixtures) => unknow
   },
 });
 
-const ciParallel = process.env.TAPILOT_E2E_CI_PARALLEL === '1';
-if (ciParallel && (process.env.CI !== 'true' || packageName !== 'lifeos.md.tapilot.e2everify')) {
-  throw new Error('Parallel projects require hosted CI and the isolated verification package');
+const ciLane = process.env.TAPILOT_E2E_CI_LANE;
+if (ciLane && (!/^[1-4]$/.test(ciLane) || process.env.CI !== 'true' || packageName !== 'lifeos.md.tapilot.e2everify')) {
+  throw new Error('CI lanes require hosted CI, a lane from 1 to 4 and the verification package');
 }
 
 export default defineTestProject<Context>({
-  test: { maxConcurrency: ciParallel ? 4 : 1, testTimeout: 30 * 60_000 },
-  projects: (ciParallel ? [0, 1, 2, 3] : [0]).map(index => ({
-    name: ciParallel ? `android-${index + 1}` : 'android', setup, retry: 0,
-    variables: { serial: ciParallel ? `emulator-${5554 + index * 2}` : '' },
+  test: { maxConcurrency: 1, testTimeout: 30 * 60_000 },
+  projects: [{
+    name: ciLane ? `android-${ciLane}` : 'android', setup, retry: 0,
     files: { include: ['cases/**/*.yaml'] },
     tags: {
-      include: ciParallel ? [`ci-lane-${index + 1}`] : tags(process.env.MIDSCENE_INCLUDE_TAGS),
+      include: ciLane ? [`ci-lane-${ciLane}`] : tags(process.env.MIDSCENE_INCLUDE_TAGS),
       exclude: [...tags(process.env.MIDSCENE_EXCLUDE_TAGS), ...(process.env.TAPILOT_E2E_LIVE === '1' ? [] : ['live']), ...(process.env.TAPILOT_E2E_FAULTS === '1' ? [] : ['resilience']), ...(process.env.TAPILOT_E2E_AUTH_FIXTURE === '1' ? [] : ['auth-fixture'])],
     },
-  })),
+  }],
   nodes: [
     ...createMidsceneNodes<Context>({
       agentClass: AndroidAgent,

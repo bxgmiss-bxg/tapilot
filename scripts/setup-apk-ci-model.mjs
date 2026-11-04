@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 
 const serial = process.env.TAPILOT_E2E_DEVICE_ID;
 const packageName = process.env.TAPILOT_E2E_PACKAGE;
-if (!['emulator-5554', 'emulator-5556', 'emulator-5558', 'emulator-5560'].includes(serial) || packageName !== 'lifeos.md.tapilot.e2everify') {
+if (serial !== 'emulator-5554' || packageName !== 'lifeos.md.tapilot.e2everify') {
   throw new Error('CI provisioning requires the disposable emulator and verification package');
 }
 const adb = (...args) => execFileSync('adb', ['-s', serial, ...args], { encoding: 'utf8', timeout: 30_000 }).trim();
