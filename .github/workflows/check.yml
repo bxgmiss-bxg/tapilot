@@ -65,7 +65,11 @@ jobs:
         if: steps.image.outputs.cache-hit != 'true'
         run: sdkmanager 'system-images;android-35;google_apis;x86_64'
       - name: Verify the cached image identity
-        run: grep -F 'Pkg.Path=system-images;android-35;google_apis;x86_64' "$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+        run: |
+          properties="$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+          grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
+          grep -Fx 'SystemImage.Abi=x86_64' "$properties"
+          grep -Fx 'SystemImage.TagId=google_apis' "$properties"
       - name: Save the image before admitting the test runners
         if: steps.image.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -174,7 +178,10 @@ jobs:
           fail-on-cache-miss: true
       - name: Verify image identity and emulator availability
         run: |
-          grep -F 'Pkg.Path=system-images;android-35;google_apis;x86_64' "$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+          properties="$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+          grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
+          grep -Fx 'SystemImage.Abi=x86_64' "$properties"
+          grep -Fx 'SystemImage.TagId=google_apis' "$properties"
           if [ ! -x "$ANDROID_HOME/emulator/emulator" ]; then
             sdkmanager 'emulator'
           fi
