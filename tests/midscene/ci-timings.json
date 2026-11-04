@@ -1,17 +1,24 @@
 {
-  "sourceRun": "https://github.com/tapilot-ai/tapilot/actions/runs/41766716128",
-  "sourceSha": "42f6aea5b5726c52dea27303fa45a9684b653e52",
+  "sourceRun": "https://github.com/tapilot-ai/tapilot/actions/runs/41790492872",
+  "sourceSha": "56beee2ba0d1df9f733b0a9b7cb36deca776cc51",
   "durationMs": {
-    "CHAT-01": 51280,
-    "CORE-01": 133002,
-    "CORE-02": 99554,
-    "DRAFT-01": 110965,
-    "DRAFT-02": 112997,
-    "DRAFT-03": 94757,
-    "UI-01": 47981,
-    "UI-02": 111247,
-    "UI-03": 44357,
-    "UI-04": 47495,
+    "CHAT-01": 100107,
+    "CORE-01": 139582,
+    "CORE-02": 112339,
+    "DRAFT-01": 104676,
+    "DRAFT-02": 92051,
+    "DRAFT-03": 122026,
+    "UI-01": 45490,
+    "UI-02": 120050,
+    "UI-03": 50468,
+    "UI-04": 56380,
     "UI-05": 50600
+  },
+  "retainedCases": {
+    "UI-05": {
+      "sourceRun": "https://github.com/tapilot-ai/tapilot/actions/runs/41766716128",
+      "sourceSha": "42f6aea5b5726c52dea27303fa45a9684b653e52",
+      "reason": "Retain its successful full duration; the latest observer failure ended before navigation."
+    }
   }
 }
