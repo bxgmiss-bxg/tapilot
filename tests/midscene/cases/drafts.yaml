@@ -14,7 +14,9 @@ cases:
       - aiAssert: The assistant answered RETRY-BASELINE and the task is completed.
       - aiAct: >-
           Add an attachment through the plus button and Files. In the system file picker,
-          open Downloads and select the text file whose name starts with tapilot-attachment-qa-.
+          open its navigation drawer and choose Downloads. If tapping the top-left menu
+          leaves Recent unchanged, do not repeat the same tap: swipe rightward from the
+          left screen edge to open the navigation drawer, then choose Downloads. Select the text file whose name starts with tapilot-attachment-qa-.
           Do not open any other document. Return to Tapilot, switch to keyboard input if needed,
           and replace the composer text with DRAFT-KEEP-UNSENT without sending it. Verify the text and
           attachment chip are both present. If the keyboard obscures the old reply, hide it

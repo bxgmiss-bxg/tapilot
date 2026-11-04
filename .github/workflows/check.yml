@@ -89,19 +89,26 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm ci --prefix tests/midscene
       - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
-      - name: Build verification APK with ARM64 and native emulator runtimes
+      - name: Build verification APK while installing the emulator image
         run: |
+          mkdir -p build/apk-midscene
+          sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64' > build/apk-midscene/image-install.log 2>&1 &
+          image_pid=$!
+          trap 'kill "$image_pid" 2>/dev/null || true; wait "$image_pid" 2>/dev/null || true' EXIT
           pnpm runtime:bundle
           pnpm runtime:node
           bash scripts/fetch-node-runtime.sh x86_64
           ./gradlew :app:assembleDebug -Pe2eVerification=true --max-workers=2 --no-parallel --no-daemon
+          if ! wait "$image_pid"; then
+            cat build/apk-midscene/image-install.log
+            exit 1
+          fi
+          trap - EXIT
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Install emulator image
-        run: sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64'
       - name: Install APK and run real screen core flows with Terra
         id: apk-test
         uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
