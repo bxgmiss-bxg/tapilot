@@ -58,3 +58,22 @@ export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/
     assert.match(mismatched.stderr, /must install the exact shared APK/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
+
+test('a native case deadline still produces failed report evidence', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'tapilot-deadline-report-'));
+  const sdk = import.meta.resolve('@midscene/test');
+  try {
+    writeFileSync(join(root, 'case.yaml'), 'cases:\n  - name: stuck native shutdown\n    steps:\n      - wait: {}\n');
+    writeFileSync(join(root, 'config.mjs'), `import {defineNode,z} from ${JSON.stringify(sdk)};
+export default {test:{testTimeout:50},projects:[{name:'deadline',files:{include:['case.yaml']},retry:0}],nodes:[defineNode({name:'wait',inputSchema:z.strictObject({}),async execute({signal}){await new Promise((_,reject)=>{if(signal.aborted)reject(signal.reason);else signal.addEventListener('abort',()=>reject(signal.reason),{once:true});});}})]};`);
+    await runTestProject({ cwd: root, projectRoot: root, configPath: join(root, 'config.mjs') });
+    const results = join(root, '.midscene/test-results');
+    const summary = JSON.parse(readFileSync(join(results, readdirSync(results)[0], 'summary.json'), 'utf8'));
+    assert.equal(summary.exitCode, 1);
+    assert.equal(summary.status, 'failed');
+    assert.equal(summary.projects[0].cases[0].attempts.length, 1);
+    assert.notEqual(summary.projects[0].cases[0].status, 'success');
+    const html = readFileSync(join(results, readdirSync(results)[0], summary.report), 'utf8');
+    assert.match(html, /midscene_test_run_dump/);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
