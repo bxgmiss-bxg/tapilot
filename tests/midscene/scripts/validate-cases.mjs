@@ -26,8 +26,8 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
     assert.deepEqual(test.steps[0], { 'app.open': {} }, `${id}: begin with isolated observer setup`);
     for (const step of test.steps.slice(1)) {
       assert.equal(Object.keys(step).length, 1, `${id}: exactly one node per step`);
-      if ('aiAct' in step || 'aiAssert' in step || 'aiWaitFor' in step) {
-        const prompt = step.aiAct ?? step.aiAssert ?? step.aiWaitFor?.prompt;
+      if ('aiAct' in step || 'aiAssert' in step || 'aiWaitFor' in step || 'aiTap' in step) {
+        const prompt = step.aiAct ?? step.aiAssert ?? step.aiWaitFor?.prompt ?? step.aiTap?.prompt;
         assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: nonempty visual prompt required`);
       }
       else {

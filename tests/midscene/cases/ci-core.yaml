@@ -40,9 +40,14 @@ cases:
       - app.open: {}
       - aiAct: >-
           Create a new Tapilot conversation. Verify device control is connected.
-          Submit exactly: "依次打开系统设置里的网络、蓝牙、显示、声音、存储、电池、应用、通知、无障碍、系统页面，每次实际查看并记录一个页面信息，再返回设置首页进入下一页，最后汇总。不要修改任何开关，不用语音。"
-          Stop interacting immediately after submission. Do not do the task yourself.
+          Enter exactly: "依次打开系统设置里的网络、蓝牙、显示、声音、存储、电池、应用、通知、无障碍、系统页面，每次实际查看并记录一个页面信息，再返回设置首页进入下一页，最后汇总。不要修改任何开关，不用语音。"
+          in the composer without submitting it. Hide the keyboard using AndroidBackButton
+          and leave the Send arrow visible. Finish immediately; the next node submits once.
+          Do not do the task yourself.
+      - aiTap:
+          prompt: The Send arrow at the right of the populated task composer, to submit the prepared Settings request once.
       - aiAct: >-
+          Do not resubmit the prepared request even if an earlier frame still shows the draft.
           Wait until Tapilot's task is visibly running and operating Settings, then return
           to Tapilot via Launch or Android recent apps and press Stop while the task is
           still active. Require the chat to show Working and an available Stop control
