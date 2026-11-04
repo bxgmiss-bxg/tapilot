@@ -554,3 +554,49 @@ blocks discovery. Removing the phone also removes its address history.
 
 While the QR is visible, scan status refreshes every 300 ms without waiting for
 the device list. This is a polling interval, not a guarantee of end-to-end latency.
+
+### Local OpenAI API key override
+
+To explicitly use an OpenAI API key instead of ChatGPT OAuth for Midscene AI,
+create `openai.json` in the Tapilot state directory (`TAPILOT_STATE_DIR`, or the
+existing `~/.local/share/android-use` directory, otherwise `~/.local/share/tapilot`):
+
+```json
+{
+  "model": "gpt-6.1-terra",
+  "apiKeyFile": "/absolute/path/to/openai-key.txt"
+}
+```
+
+The key file contains only the API key. Keep both files private (mode `0600`).
+Requests use the official `https://api.openai.com/v1` Responses endpoint. The
+explicit model is used even if absent from the model catalog; availability must
+be verified with a real inference request. Run `tapilot settings --mode ai` and
+`tapilot auth-status`; status reports `provider: openai_api_key` and the model.
+Authorization status checks local configuration, not remote model entitlement.
+An invalid override fails without falling back to OAuth. Remove `openai.json`
+to return to the existing OAuth account; `settings --mode steps` disables
+internal AI without removing either authorization. OAuth logout does not revoke
+an API key, so remove the override before using `auth-logout`.
+
+The `Checks` workflow runs **Midscene Terra 6.1 live API** after every push to
+`main` (including PR merges), and on manual dispatch. Configure the repository
+Actions secret `TAPILOT_OPENAI_API_KEY`. PR checks never receive this secret or
+run paid inference. Each main update gets its own run so later merges do not
+cancel earlier live checks.
+
+For local verification, provide `TAPILOT_OPENAI_API_KEY` in the environment and
+run `node plugins/tapilot/scripts/verify-openai-live.mjs` from the repository root.
+The test uses the production controller, worker, Midscene SDK and real official
+Responses API with `gpt-6.1-terra`. A synthetic phone transport provides screenshots
+and validates the model's tap coordinates. It checks a positive assertion, a
+negative assertion, one successful visual action and the resulting screen.
+This is model integration coverage, not Android hardware acceptance. CI uploads
+`result.json` and native HTML reports for seven days, including failures. The
+private key and temporary configuration are deleted and never uploaded.
+
+The API integration diagnostics remain downloadable artifacts only. The online
+report entry in CI belongs to the actual APK suite and opens the complete native
+Midscene Test report directly, with no custom HTML index. See the
+[APK CI guide](../../tests/midscene/README.md#automatic-apk-smoke-on-hosted-ci)
+for Cloudflare Pages configuration and UI coverage.

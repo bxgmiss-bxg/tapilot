@@ -2,7 +2,7 @@ afterEach:
   - fixture.restore: {}
 cases:
   - name: DRAFT-01 Retry uses the original message while preserving an unrelated draft
-    tags: [live, attachments, retry-draft]
+    tags: [live, attachments, retry-draft, ci-core]
     steps:
       - app.open: {}
       - fixture.attachment: {}
@@ -14,7 +14,9 @@ cases:
       - aiAssert: The assistant answered RETRY-BASELINE and the task is completed.
       - aiAct: >-
           Add an attachment through the plus button and Files. In the system file picker,
-          open Downloads and select the text file whose name starts with tapilot-attachment-qa-.
+          open its navigation drawer and choose Downloads. If tapping the top-left menu
+          leaves Recent unchanged, do not repeat the same tap: swipe rightward from the
+          left screen edge to open the navigation drawer, then choose Downloads. Select the text file whose name starts with tapilot-attachment-qa-.
           Do not open any other document. Return to Tapilot, switch to keyboard input if needed,
           and replace the composer text with DRAFT-KEEP-UNSENT without sending it. Verify the text and
           attachment chip are both present. If the keyboard obscures the old reply, hide it
@@ -24,6 +26,11 @@ cases:
           Tap Retry on the existing RETRY-BASELINE assistant reply and confirm Run.
           Do not press the composer Send button. Stop interacting after the retry starts.
       - task.waitForIdle: {}
+      - aiWaitFor:
+          prompt: No transient Android toast or completion overlay covers the Tapilot composer.
+          options:
+            timeoutMs: 10000
+            checkIntervalMs: 1000
       - aiAssert: >-
           The retried task completed with RETRY-BASELINE. Its user message has no attachment
           link. The composer still contains the unsent text DRAFT-KEEP-UNSENT and the
@@ -41,9 +48,21 @@ cases:
           Create a new Tapilot conversation. Add an attachment through plus and Files.
           In Downloads select only the file whose name starts with tapilot-attachment-qa-.
           Switch to keyboard input if needed and replace the composer text with DRAFT-RESTART-UNSENT without sending.
-          Verify both the attachment chip and the unsent text are present, then stop interacting.
+          Read back the entire draft after keyboard input settles. It must be exactly
+          DRAFT-RESTART-UNSENT, including the final T; DRAFT-RESTART-UNSEN is incomplete.
+          Correct any incomplete input now, before the restart. Verify the attachment chip
+          is present and leave the complete unsent draft visible without submitting.
+      - aiAssert: >-
+          Before restarting, the composer contains exactly DRAFT-RESTART-UNSENT,
+          including the final T, and the tapilot-attachment-qa- text attachment.
+          The conversation has no submitted task.
       - fault.restart: {}
       - app.open: {}
+      - aiWaitFor:
+          prompt: The Tapilot main chat screen and task composer are visible after the app restart.
+          options:
+            timeoutMs: 30000
+            checkIntervalMs: 1000
       - aiAssert: >-
           The composer still contains DRAFT-RESTART-UNSENT and the tapilot-attachment-qa-
           text attachment after restarting. No task was sent or automatically started.
@@ -61,8 +80,13 @@ cases:
           This case only edits an unsent draft; do not submit or start any task or microphone.
           Create a new Tapilot conversation. Add a file through plus and Files. In Downloads
           select only the file whose name starts with tapilot-attachment-qa-.
-          Replace the composer text with DRAFT-BEFORE-SHARE without sending, then stop interacting.
-          Leave the keyboard open. Do not press Enter, Done, Send, or the keyboard action key.
+          Replace the composer text with DRAFT-BEFORE-SHARE without sending.
+          Do not press Enter, Done, Send, or the keyboard action key.
+      - aiAct: >-
+          Tap the composer containing DRAFT-BEFORE-SHARE to focus it and open the keyboard.
+          Wait up to ten seconds for the keyboard. Keep the text and attachment unchanged,
+          and stop only when the keyboard is visible. Do not send, submit, or dismiss the keyboard.
+      - aiAssert: The Android keyboard is visible and the focused composer contains DRAFT-BEFORE-SHARE.
       - aiAssert: The composer contains DRAFT-BEFORE-SHARE and the tapilot-attachment-qa- text attachment.
       - fixture.shareText: {}
       - aiAssert: >-

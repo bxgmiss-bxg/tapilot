@@ -64,6 +64,13 @@ foreground services, wireless pairing and upgrade behavior.
 
 ## Signing and CI
 
+The hosted verification and APK smoke jobs reuse Gradle dependencies and task
+outputs, npm downloads, and checksum-verified Termux packages. Gradle validates
+task inputs before reusing outputs; runtime generation, APK installation, and
+all live Midscene cases still run. Main pushes and trusted manual runs populate
+the Gradle cache; pull requests only read it. A first run starts cold, so compare
+repeat runs when measuring CI speed.
+
 To reproduce the `Checks` workflow locally after configuring the toolchain above,
 run these commands in order (stop if any command fails):
 
@@ -86,11 +93,17 @@ model-free. A local pass does not establish a Linux-hosted CI pass, a production
 signing check, or physical-device E2E acceptance.
 
 Pull requests run `.github/workflows/check.yml` with development signing only.
-PR checks build and verify a local APK without publishing it. The tag-triggered or
-manually dispatched `release-check.yml` uses the `release` environment; configure
-its reviewers and secrets before production builds. It validates source-review
-receipts and distribution readiness, then uploads the signed APK and evidence as
-an Actions artifact. It does not publish a public release; see [deployment](docs/deployment.md).
+Pull-request APK checks do not upload binaries. Main pushes and trusted manual
+runs additionally build an isolated debug verification APK once and transfer it
+through a one-day Actions artifact to the test runners. This CI handoff is limited
+to `lifeos.md.tapilot.e2everify`; its APK digest and source revision must match on
+every runner. It does not authorize a Beta/Release upload or establish third-party
+redistribution readiness.
+The tag-triggered or manually dispatched `release-check.yml` uses the `release`
+environment; configure its reviewers and secrets before production builds. It
+validates source-review receipts and distribution readiness, then uploads the
+signed APK and evidence as an Actions artifact. It does not publish a public
+release; see [deployment](docs/deployment.md).
 
 Production builds require:
 

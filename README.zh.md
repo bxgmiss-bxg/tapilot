@@ -6,6 +6,8 @@
 
 [English](README.md) · **简体中文**
 
+[![E2E by Midscene.js](https://badge.midscenejs.com/by-midscene)](https://midscenejs.com)
+
 让 Tapilot 打开应用、查找屏幕上的信息，或跨应用完成任务。
 执行中可以补充要求，也可以随时停止；结束后能回看截图和实际操作。
 

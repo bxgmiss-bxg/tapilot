@@ -6,7 +6,13 @@ assistant_root="$(cd "${script_root}/.." && pwd -P)"
 source "${script_root}/termux-package-cache.sh"
 
 output_directory="${assistant_root}/.cache/native/arm64-v8a"
-work_directory="${assistant_root}/.cache/node-runtime-work"
+architecture="${1:-arm64-v8a}"
+case "$architecture" in
+  arm64-v8a) ;;
+  x86_64) output_directory="${assistant_root}/.cache/ci-native/x86_64" ;;
+  *) echo "Unsupported runtime architecture: $architecture" >&2; exit 1 ;;
+esac
+work_directory="${assistant_root}/.cache/node-runtime-work-${architecture}"
 staging="${work_directory}/staging"
 trap 'rm -rf "${work_directory}"' EXIT
 
@@ -19,6 +25,20 @@ packages=(
   'o/openssl/openssl_1%3A3.6.5_aarch64.deb a2fb7856875e63ef6b90442752e05974813372c3ca86d2513a78ea43c67a0f8b'
   'z/zlib/zlib_1.3.2_aarch64.deb 75e7d0af17fcc3b40004309fdc00a1ddb9ae08346dce5e269902c34ac3966ac9'
 )
+
+
+# Verification-only emulator runtime, pinned from the same Termux package index.
+if [[ "$architecture" == x86_64 ]]; then
+  packages=(
+    'n/nodejs-lts/nodejs-lts_24.22.2_x86_64.deb 0dbbc99d03af8093ce2b8029930fcf80b201372ed2cf2275722decdb8f974fbe'
+    'c/c-ares/c-ares_1.34.9_x86_64.deb ac96c37fcc9181d1a7095f60485457fe6c3d784a83b0e8e6e7af9b3bfceda237'
+    'libc/libc++/libc++_30_x86_64.deb c9bcd9a8067a19c9c0e4893a72d314a2e37d6b67ce8dd05c67b9bbacad044b4f'
+    'libi/libicu/libicu_78.3_x86_64.deb 19fa8c4d828719f465d523983b1e0d833e4130bb22790104638965d97e27fe60'
+    'libs/libsqlite/libsqlite_3.54.1-1_x86_64.deb 497471806378934fec8a6f3b5db70cf52a3652828786a241e2e37eebc19112b0'
+    'o/openssl/openssl_1%3A3.6.5_x86_64.deb 540f144592d23d35672976e175ede1b5d8cf464f153f646df5d4e6dcd8491a15'
+    'z/zlib/zlib_1.3.2_x86_64.deb c61b089dd30981452f5953b2bad4c4e7857062b2abd971f87fb0aec441bc02f4'
+  )
+fi
 
 rm -rf "${staging}"
 mkdir -p "${staging}/lib"
@@ -48,6 +68,10 @@ for library_name in libz.so.1.3.2 libcares.so libsqlite3.so.3.54.1 \
 done
 
 python3 "${script_root}/patch-node-elf.py" "${staging}" "${output_directory}"
+notice_directory="${assistant_root}/app/src/main/assets/third-party/native"
+if [[ "$architecture" == x86_64 ]]; then
+  notice_directory="${assistant_root}/.cache/ci-native-assets/third-party/native-x86_64"
+fi
 node "${script_root}/third-party-notices.mjs" native "${unpack_root}" \
-  "${assistant_root}/app/src/main/assets/third-party/native"
+  "${notice_directory}"
 echo "Node runtime ready at ${output_directory}"

@@ -152,6 +152,10 @@ android {
     // Offline reports still need their export helper and branding assets.
     sourceSets["main"].assets.srcDir("../public")
     sourceSets["main"].jniLibs.srcDir("../.cache/native")
+    if (providers.gradleProperty("e2eVerification").isPresent) {
+        sourceSets["debug"].jniLibs.srcDir("../.cache/ci-native")
+        sourceSets["debug"].assets.srcDir("../.cache/ci-native-assets")
+    }
     sourceSets["test"].resources.srcDir("../tests/fixtures")
 
     packaging {

@@ -6,8 +6,18 @@ cases:
       - aiAct: >-
           Return to the main Tapilot chat screen. Open the conversation menu at the top
           right and create a new conversation. Verify that the new conversation has an
-          empty message area, an editable task composer, and the execution-mode control.
+          empty message area, a task composer, and the execution-mode control.
+          If a previous test left unsent text beginning with DRAFT- or CI-DRAFT-, clear only
+          that test text and remove only an attachment named tapilot-attachment-qa-.
+          Do not discard unrelated content. Finish with the test composer empty.
           Do not submit a task or start voice.
+      - aiAct: >-
+          Tap the empty task composer once to focus it. Wait up to 10 seconds for the
+          on-screen keyboard to finish opening, observing again while it loads.
+          Stop when the keyboard is visible; fail if it does not appear within that
+          time. Do not enter text, submit a task, or start voice.
+      - aiAssert: >-
+          The on-screen keyboard is visible and the empty task composer is focused.
       - aiAct: >-
           Type "Tapilot E2E draft only" into the task composer without sending it.
           Verify that the exact draft and the Send control are visible. Clear only this
@@ -60,3 +70,36 @@ cases:
           "设备控制（辅助功能）" in the "Global assistant" section. Verify the Android
           Accessibility enablement guidance. Do not change any setting or open system
           Accessibility. Return to chat using the top-left back button.
+
+  - name: UI-04 Execution confirmation mode persists across settings navigation
+    tags: [smoke, execution-mode]
+    steps:
+      - app.open: {}
+      - aiAct: >-
+          Return to the main chat. Open the execution-mode control beside the composer
+          and choose "Confirm each operation" / "每次操作确认". Do not submit a task.
+      - aiAssert: The composer execution-mode control displays Confirm each operation / 每次操作确认.
+      - aiAct: Open settings and return to chat using its back button. Do not change any setting.
+      - aiAssert: The composer still displays Confirm each operation / 每次操作确认.
+      - aiAct: Open the execution-mode control and choose Confirm critical operations / 关键操作确认.
+      - aiAssert: The composer execution-mode control displays Confirm critical operations / 关键操作确认.
+      - aiAct: Open the execution-mode control and restore Automatic (YOLO) / 自动执行（YOLO）.
+      - aiAssert: The composer execution-mode control displays Automatic (YOLO) / 自动执行（YOLO）.
+
+  - name: UI-05 Unsent draft survives settings and new conversation navigation
+    tags: [smoke, draft-navigation]
+    steps:
+      - app.open: {}
+      - aiAct: >-
+          Return to chat, focus the task composer, and enter exactly CI-DRAFT-NAVIGATION.
+          Wait for the keyboard to appear before typing. Do not send or submit.
+          Hide the keyboard only using AndroidBackButton.
+      - aiAssert: The composer contains CI-DRAFT-NAVIGATION as unsent text.
+      - aiAct: Open settings, then return to chat using the top-left back button without changing settings.
+      - aiAssert: The composer still contains CI-DRAFT-NAVIGATION as unsent text.
+      - aiAct: Open the conversation menu at the top right and choose New conversation / 新对话.
+      - aiAssert: >-
+          The conversation message area is empty and the shared composer still contains
+          CI-DRAFT-NAVIGATION. No task or user message was submitted.
+      - aiAct: Clear CI-DRAFT-NAVIGATION from the composer without sending it.
+      - aiAssert: The composer is empty and there is no submitted CI-DRAFT-NAVIGATION message.

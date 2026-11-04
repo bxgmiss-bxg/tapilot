@@ -1,0 +1,72 @@
+cases:
+  - name: CORE-01 Native Settings task completes with screenshot evidence and saved history
+    tags: [live, ci-core, evidence]
+    steps:
+      - app.open: {}
+      - aiAct: >-
+          Create a new Tapilot conversation. Verify device control is connected.
+          Submit exactly: "打开系统设置首页，实际查看并告诉我屏幕上能看到的前两个设置分类名称。不要修改任何设置，不用语音。"
+          Stop interacting after submission. Never open Settings or perform the task yourself.
+      - task.waitForIdle: {}
+      - aiAct: Return to Tapilot's main chat using Launch or Android recent apps. Do not change the selected conversation.
+      - aiAssert: >-
+          The latest task is completed with at least one phone operation and names two
+          observed Settings categories: Network & internet and Connected devices (or their
+          Chinese equivalents). No model, permission or runtime error is shown.
+      - aiAct: >-
+          Open this task's Activity execution records, select the operation that inspected
+          Settings, and open its Replay Player. Select a recorded frame showing the actual
+          Android Settings categories Network & internet and Connected devices (or their
+          Chinese equivalents). Leave that frame visibly open for the next independent
+          assertion; do not return to chat in this step. Do not treat instruction text
+          or the assistant's answer as screenshot evidence.
+      - aiAssert: >-
+          The execution replay shows an actual Android Settings screen containing Network &
+          internet and Connected devices (or their Chinese equivalents).
+      - aiAct: >-
+          Return to the chat, then create a new conversation using the conversation menu.
+          Do not submit any text.
+      - aiAssert: The new conversation has an empty message area and an empty composer.
+      - aiAct: >-
+          Open the conversation menu and select the previous conversation about inspecting
+          the first two Settings categories. Do not select New conversation.
+      - aiAssert: >-
+          The previous user request and its completed answer with the two Settings category
+          names are restored. Its execution record entry is still available. No task restarted.
+
+  - name: CORE-02 Stop a running phone task and complete a fresh request
+    tags: [live, ci-core, cancellation]
+    steps:
+      - app.open: {}
+      - aiAct: >-
+          Create a new Tapilot conversation. Verify device control is connected.
+          Enter exactly: "依次打开系统设置里的网络、蓝牙、显示、声音、存储、电池、应用、通知、无障碍、系统页面，每次实际查看并记录一个页面信息，再返回设置首页进入下一页，最后汇总。不要修改任何开关，不用语音。"
+          in the composer without submitting it. Hide the keyboard using AndroidBackButton
+          and leave the Send arrow visible. Finish immediately; the next node submits once.
+          Do not do the task yourself.
+      - aiTap:
+          prompt: The Send arrow at the right of the populated task composer, to submit the prepared Settings request once.
+      - aiAct: >-
+          Do not resubmit the prepared request even if an earlier frame still shows the draft.
+          Wait until Tapilot's task is visibly running and operating Settings, then return
+          to Tapilot via Launch or Android recent apps and press Stop while the task is
+          still active. Require the chat to show Working and an available Stop control
+          before pressing it. Returning to chat pauses phone interaction; an individual
+          operation's paused/failed record is not the conversation task's terminal status.
+          Fail if the conversation task itself already reached a terminal state before
+          Stop could be pressed. Do not operate Settings yourself. Finish this action
+          immediately after pressing Stop; the next steps wait for shutdown and independently
+          assert the terminal outcome. Do not evaluate the resulting reply in this action.
+      - task.waitForIdle: {}
+      - aiAssert: >-
+          The conversation task explicitly says Stopped at your request (or its Chinese
+          equivalent), not a completed or failed terminal task. A historical phone-operation
+          record may mention interruption when returning to chat. No running progress
+          indicator remains and the composer is available for a fresh request.
+      - aiAct: >-
+          In this same conversation submit exactly: "取消刚才的设置任务，不要继续。新任务：只回复 CANCEL-RECOVERY-OK，不操作手机，不用语音。"
+          Stop interacting after submission.
+      - task.waitForIdle: {}
+      - aiAssert: >-
+          The new reply is CANCEL-RECOVERY-OK with completed status and zero phone operations.
+          The old Settings task remains stopped/cancelled and was not replayed or marked completed.

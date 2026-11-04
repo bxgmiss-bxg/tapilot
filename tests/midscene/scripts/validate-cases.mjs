@@ -4,9 +4,11 @@ import { fileURLToPath } from 'node:url';
 import yaml from 'js-yaml';
 import { normalizeSteps } from '@midscene/test';
 import project from '../midscene.config.ts';
+import { isHosted } from './ci-shards.ts';
 const directory = fileURLToPath(new URL('../', import.meta.url));
 const ids = new Set();
 let fixtureCount = 0;
+let ciCount = 0;
 for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${directory}/${folder}`).filter(name => name.endsWith('.yaml')).map(name => `${folder}/${name}`))) {
   const document = yaml.load(readFileSync(`${directory}/${name}`, 'utf8'));
   for (const phase of ['beforeAll', 'beforeEach', 'afterEach', 'afterAll']) {
@@ -19,11 +21,13 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
     const id = test.name.split(' ')[0];
     assert.ok(!ids.has(id), `${id}: duplicate ID`); ids.add(id);
     assert.ok(Array.isArray(test.tags) && test.tags.length, `${id}: tags required`);
+    assert.ok(!test.tags.some(tag => /^ci-lane-/.test(tag)), `${id}: CI placement is generated, not a case tag`);
+    if (isHosted(test)) ciCount++;
     assert.deepEqual(test.steps[0], { 'app.open': {} }, `${id}: begin with isolated observer setup`);
     for (const step of test.steps.slice(1)) {
       assert.equal(Object.keys(step).length, 1, `${id}: exactly one node per step`);
-      if ('aiAct' in step || 'aiAssert' in step) {
-        const prompt = step.aiAct ?? step.aiAssert;
+      if ('aiAct' in step || 'aiAssert' in step || 'aiWaitFor' in step || 'aiTap' in step) {
+        const prompt = step.aiAct ?? step.aiAssert ?? step.aiWaitFor?.prompt ?? step.aiTap?.prompt;
         assert.ok(typeof prompt === 'string' && prompt.trim(), `${id}: nonempty visual prompt required`);
       }
       else {
@@ -42,3 +46,5 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
   }
 }
 console.log(`Validated ${ids.size - fixtureCount} Midscene E2E cases and ${fixtureCount} setup fixtures; live tasks are explicitly tagged.`);
+
+assert.ok(ciCount >= 4, 'Hosted CI needs at least one case for each execution device');

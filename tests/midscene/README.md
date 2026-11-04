@@ -103,8 +103,8 @@ This builds the selected source, installs `lifeos.md.tapilot.e2everify` without
 clearing its data, records the commit and APK SHA-256 alongside the report, verifies
 the host model, and runs only `cases/smoke.yaml`. It does not install over the
 personal app or provision phone model credentials. Live/resilience cases remain
-outside this workflow. The bundled native runtime requires ARM64; the upstream
-x86_64 Android emulator job cannot replace this device for native task coverage.
+outside this dedicated-device workflow. The separate hosted workflow below adds
+a verification-only x86_64 runtime; it does not replace physical-device validation.
 
 ## Cases and selection
 
@@ -113,6 +113,8 @@ x86_64 Android emulator job cannot replace this device for native task coverage.
 | UI-01 | Fresh conversation, draft entry and clearing | Smoke |
 | UI-02 | Toggle automatic reply speech, verify persistence and leave it on | Smoke |
 | UI-03 | Wireless/accessibility guidance and model-access choices | Smoke |
+| UI-04 | Execution confirmation modes and persistence across settings | Smoke |
+| UI-05 | Unsent draft survives settings and new-conversation navigation | Smoke |
 | CHAT-01 | Clarify a general question, then finish with an answer and completed status | Live |
 | DRAFT-01 | Retry only the historical message and preserve the unrelated composer text/attachment | Live |
 | DRAFT-02 | Restart with an unsent attachment, then preview the preserved content | Resilience |
@@ -145,7 +147,7 @@ MIDSCENE_INCLUDE_TAGS=evidence pnpm test:e2e:live
 MIDSCENE_INCLUDE_TAGS=calculator,cancellation pnpm test:e2e:live
 ```
 
-All cases run serially with a 30-minute case timeout and zero automatic retries.
+Cases run serially on each device with a 30-minute case timeout and zero automatic retries. Hosted CI uses four isolated devices concurrently.
 A timed-out action must be inspected before rerunning; never replay an uncertain
 mutation automatically. Opening a case creates a fresh device connection and observer agent but retains
 phone data and model login. Chat cases explicitly create a new conversation.
@@ -403,3 +405,78 @@ VALIDATED before submitting the explicit retry. A different validated network or
 an enabled Wi-Fi switch is insufficient. This is a system-connectivity precondition,
 not proof that the configured model endpoint is reachable; the final real task
 still determines recovery success. The wait is bounded to 60 seconds.
+
+### Automatic APK core flows on hosted CI
+
+Every main push and trusted manual dispatch also runs `APK install and Midscene
+core flows` on four isolated Android 35 Google APIs x86_64 emulators with
+three-button system navigation, so file-picker drawer swipes do not trigger Back.
+A build job produces the verification APK once; each test runner downloads and
+installs those exact bytes after checking the source SHA and APK SHA-256. It runs eleven
+cases: UI-01 through UI-05, DRAFT-02, DRAFT-03, CHAT-01, DRAFT-01, CORE-01 and CORE-02.
+The observer uses `gpt-6.1-terra` through the official Responses API. The installed
+app uses the same official model for real multi-turn answers, historical retries,
+Settings operations with replay evidence, conversation history, and cancellation
+followed by a new request. The observer never performs the requested phone task.
+
+A checksum-pinned x86_64 Termux Node runtime is included only in the debug
+verification APK; normal Beta/release packaging retains ARM64 only. This lets
+native tasks run in the emulator without relying on ARM executable translation.
+Emulator success does not establish physical-device service acceptance.
+
+Before screenshots, a shell-permission-protected debug receiver configures only
+`lifeos.md.tapilot.e2everify`. The key travels through ADB stdin into a private
+short-lived file, is saved through the product's encrypted credential store, and
+is deleted after setup. The harness refuses physical devices and enables the
+verification app's accessibility service on its disposable emulator. No secrets
+are entered through UI prompts or included in test YAML.
+
+Shard jobs execute the emulator/install/test command and upload native evidence
+without individual report Summaries. The final `Midscene Test report` job alone
+uses the pinned `web-infra-dev/midscene-action` to render all case results in one
+Summary, followed by the dynamic badge and an explicit Cloudflare URL.
+The action's working directory is `tests/midscene`, matching the native report root.
+Run the configured project without a positional directory so the project-relative
+`cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
+readiness and cleanup; a nonzero exit status fails its shard job. The hosted
+job explicitly opts into the resilience profile and selects `smoke,draft-restart,share-draft,ci-core`
+without network faults. The build job discovers the selected cases directly from
+YAML and generates four disjoint lanes using longest-processing-time placement.
+`ci-timings.json` records measured durations from a successful source run; unseen
+cases use a conservative estimate and join the least-loaded lane automatically.
+There are no lane tags to maintain in case definitions. Original YAML steps,
+cleanup phases and case order within each document are preserved.
+
+Each matrix job owns one runner and emulator (5554); jobs run concurrently while
+cases on each device stay serial. A failed lane does not cancel its peers. The
+verification APK is transferred only through a one-day Actions artifact, before
+any model key is provisioned. The shard runners do not install JDK/Gradle or
+rebuild the APK. Android image preparation runs alongside the shared APK build;
+all test runners restore the same versioned system-image cache instead of each
+downloading it from Google. The cache key intentionally pins the prepared image;
+bump it in `check.yml` when updating the image. Missing cache data fails before
+model use. This authorized CI handoff is not a Beta/Release publication.
+Each runner records the shared APK digest, source revision, workflow run and plan
+digest alongside its installation logs and screenshots. A changed APK, checkout
+or case definition is rejected before installation. Failed-job reruns have distinct
+artifact names; aggregation uses the latest attempt for each lane.
+
+The final job uses Midscene's `ReportMergingTool` to combine all native reports.
+It refuses mixed APK/source/plan identities, missing lanes and missing/duplicate
+cases. The pinned action renders the case summaries, and the Summary links
+directly to one complete native report with steps and screenshot evidence.
+The dynamic badge uses the merged case outcomes. No custom HTML landing page is
+generated. All eleven cases use zero retries. The disposable verification app is pre-granted
+notification permission before screenshots; microphone and other permissions are
+not granted. Restart assertions wait for the chat to become visible, then
+independently check the retained text and attachment. The fresh emulator contains no
+personal accounts. Screenshots and reports are
+published to the dedicated `tapilot-apk-reports` Cloudflare Pages project, with
+a per-run preview URL in the CI Summary. Pages publication follows delinoio/apps#893; the action's separate Workers
+publisher is disabled. This project requires the configured Pages-edit token.
+The Summary links directly to the native report containing all selected
+APK cases. The separate API integration check retains artifact diagnostics only;
+it does not publish an HTML index or a second online report entry. Failed cases
+remain failed even when report publication succeeds. PR runs use neither the
+model nor Cloudflare token. APK identity, logs and visual evidence remain
+available as the `apk-midscene-<sha>-<lane>-<attempt>` artifact for seven days.

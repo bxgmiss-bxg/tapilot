@@ -11,10 +11,306 @@ on:
         default: false
 permissions:
   contents: read
+env:
+  # Bump this key to intentionally refresh the Android 35 system image.
+  TAPILOT_CI_ANDROID_IMAGE_KEY: tapilot-android35-google-apis-x86_64-v1
 concurrency:
-  group: checks-${{ inputs.device_e2e && github.run_id || github.ref }}
+  group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
+  midscene-openai-live:
+    name: Midscene Terra 6.1 live API
+    # main pushes include merged PRs; manual runs can validate a trusted branch.
+    # No secrets or paid inference for pull_request runs, including forks.
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: plugins/tapilot/package-lock.json
+      - run: npm ci --prefix plugins/tapilot
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs plugins/tapilot
+      - name: Verify real model assertions and visual action through Tapilot
+        id: terra-test
+        env:
+          TAPILOT_OPENAI_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
+        run: node plugins/tapilot/scripts/verify-openai-live.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: midscene-terra-live-${{ github.sha }}
+          path: build/midscene-openai-live/
+          if-no-files-found: warn
+          retention-days: 7
+  android-image:
+    name: Prepare shared Android image
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Restore the versioned Android system image
+        id: image
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+      - name: Install the image on a cache miss
+        if: steps.image.outputs.cache-hit != 'true'
+        run: sdkmanager 'system-images;android-35;google_apis;x86_64'
+      - name: Verify the cached image identity
+        run: |
+          properties="$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+          grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
+          grep -Fx 'SystemImage.Abi=x86_64' "$properties"
+          grep -Fx 'SystemImage.TagId=google_apis' "$properties"
+      - name: Save the image before admitting the test runners
+        if: steps.image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+
+  apk-build:
+    name: Build shared verification APK
+    outputs:
+      artifact-name: ${{ steps.handoff.outputs.artifact-name }}
+      plan: ${{ steps.handoff.outputs.plan }}
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Cache task outputs as well as downloaded Gradle dependencies.
+      GRADLE_OPTS: -Dorg.gradle.caching=true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            plugins/tapilot/package-lock.json
+            tests/midscene/package-lock.json
+      - uses: pnpm/action-setup@v4
+        with:
+          version: '12.4.1'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Restore Gradle dependencies and task outputs
+        uses: gradle/actions/setup-gradle@7ca78c16c887dc6c5f36fd6d0cb0f5c23d940e69 # v6
+        with:
+          # Trusted manual runs can warm the branch cache before merging.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Cache verified native runtime downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/termux/debs
+          key: ${{ runner.os }}-termux-${{ hashFiles('scripts/fetch-*.sh', 'scripts/termux-package-cache.sh') }}
+          restore-keys: ${{ runner.os }}-termux-
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0'
+      - run: pnpm install --frozen-lockfile
+      - run: npm ci --prefix tests/midscene
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
+      - name: Build the shared verification APK
+        run: |
+          pnpm runtime:bundle
+          pnpm runtime:node
+          bash scripts/fetch-node-runtime.sh x86_64
+          ./gradlew :app:assembleDebug -Pe2eVerification=true --max-workers=2 --no-parallel --no-daemon
+      - name: Record shared APK identity and generate balanced case lanes
+        id: handoff
+        shell: bash
+        run: |
+          mkdir -p build/ci-apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk > build/ci-apk/package.txt
+          grep -F "name='lifeos.md.tapilot.e2everify'" build/ci-apk/package.txt
+          cp app/build/outputs/apk/debug/app-debug.apk build/ci-apk/
+          node tests/midscene/scripts/ci-shards.ts plan
+          echo "artifact-name=ci-verification-apk-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          echo "plan=$(cat build/ci-apk/ci-plan.json)" >> "$GITHUB_OUTPUT"
+      # Explicitly authorized CI job handoff only; no release APK is published.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.handoff.outputs.artifact-name }}
+          path: build/ci-apk/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+
+  apk-midscene:
+    name: APK core flows (${{ matrix.lane }}/4)
+    needs: [apk-build, android-image]
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+      - run: npm ci --prefix tests/midscene
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Restore the shared Android system image
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+          fail-on-cache-miss: true
+      - name: Verify image identity and emulator availability
+        run: |
+          properties="$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+          grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
+          grep -Fx 'SystemImage.Abi=x86_64' "$properties"
+          grep -Fx 'SystemImage.TagId=google_apis' "$properties"
+          if [ ! -x "$ANDROID_HOME/emulator/emulator" ]; then
+            sdkmanager 'emulator'
+          fi
+      - name: Download the exact APK produced by this run's shared build
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.apk-build.outputs.artifact-name }}
+          path: build/ci-apk
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Install APK and run real screen core flows with Terra
+        id: apk-test
+        # Shards only produce evidence. The final job owns the native action,
+        # Summary and published entry so this workflow has one report entrance.
+        run: bash scripts/run-apk-ci-emulator.sh
+        env:
+          MIDSCENE_MODEL_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
+          MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
+          MIDSCENE_MODEL_NAME: gpt-6.1-terra
+          MIDSCENE_MODEL_FAMILY: gpt-6
+          MIDSCENE_MODEL_PROTOCOL: openai-responses
+          MIDSCENE_INCLUDE_TAGS: smoke,draft-restart,share-draft,ci-core
+          MIDSCENE_EXCLUDE_TAGS: ''
+          TAPILOT_E2E_CI_LANE: ${{ matrix.lane }}
+          TAPILOT_E2E_DEVICE_ID: emulator-5554
+          TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
+          TAPILOT_E2E_SCREEN_INFO: wm
+          MIDSCENE_REPORT_QUIET: 'true'
+      - name: Upload native shard evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: midscene-apk-shard-${{ matrix.lane }}-${{ github.run_attempt }}
+          path: |
+            tests/midscene/midscene_run/
+            tests/midscene/.midscene/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Preserve APK identity and visual evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-midscene-${{ github.sha }}-${{ matrix.lane }}-${{ github.run_attempt }}
+          path: |
+            build/apk-midscene/
+            tests/midscene/midscene_run/
+            tests/midscene/.midscene/test-results/
+            tests/midscene/cases/midscene_run/
+            tests/midscene/cases/.midscene/test-results/
+          include-hidden-files: true
+          retention-days: 7
+
+  apk-report:
+    name: Midscene Test report
+    needs: [apk-build, apk-midscene]
+    if: ${{ always() && needs.apk-build.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+      - run: npm ci --prefix tests/midscene
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: midscene-apk-shard-*
+          path: tests/midscene/shard-results
+      - name: Merge all native Midscene reports and check coverage
+        id: apk-test
+        env:
+          TAPILOT_CI_PLAN: ${{ needs.apk-build.outputs.plan }}
+        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
+        with:
+          working-directory: tests/midscene
+          command: node scripts/merge-ci-reports.mjs
+          artifact-name: midscene-apk-complete-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: '7'
+          publish-pages: 'false'
+      - name: Locate APK smoke HTML report
+        id: apk-report
+        if: ${{ always() && (steps.apk-test.outcome == 'success' || steps.apk-test.outcome == 'failure') }}
+        shell: bash
+        run: |
+          shopt -s nullglob
+          reports=(tests/midscene/midscene_run/report/midscene-e2e-*/index.html)
+          if [ "${#reports[@]}" -ne 1 ]; then
+            echo '::error::Expected exactly one APK smoke HTML report'
+            exit 1
+          fi
+          echo "directory=${reports[0]%/index.html}" >> "$GITHUB_OUTPUT"
+      - name: Prepare isolated Wrangler directory
+        if: ${{ always() && steps.apk-report.outcome == 'success' }}
+        run: |
+          mkdir -p .cloudflare-deploy
+          echo '{"private":true}' > .cloudflare-deploy/package.json
+      - name: Publish APK smoke report
+        id: apk-pages
+        if: ${{ always() && steps.apk-report.outcome == 'success' }}
+        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.151.1'
+          packageManager: npm
+          workingDirectory: .cloudflare-deploy
+          command: pages deploy "../${{ steps.apk-report.outputs.directory }}" --project-name=tapilot-apk-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
+      - name: Link APK report
+        if: ${{ always() && steps.apk-pages.outcome == 'success' }}
+        env:
+          REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$REPORT_URL" =~ ^https://[a-z0-9.-]+\.tapilot-apk-reports\.pages\.dev/?$ ]]; then
+            echo '::error::Cloudflare did not return the expected report URL'
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 3 --max-time 30 "$REPORT_URL" -o /tmp/published-report.html
+          grep -q 'midscene_test_run_dump' /tmp/published-report.html
+          badge=$(cat tests/midscene/midscene_run/ci-badge.md)
+          printf '[%s](%s)\n\n[Open all APK cases in Midscene Test ↗](%s)\n\nCloudflare: <%s>\n\nSource: %s\n' \
+            "$badge" "$REPORT_URL" "$REPORT_URL" "$REPORT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e
     runs-on: ubuntu-latest
@@ -99,6 +395,7 @@ jobs:
         run: |
           pnpm runtime:bundle
           pnpm runtime:node
+          bash scripts/fetch-node-runtime.sh x86_64
           ./gradlew :app:assembleDebug -Pe2eVerification --max-workers=2 --no-parallel --no-daemon
       - name: Install verification APK and record its identity
         shell: bash
@@ -143,11 +440,18 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    env:
+      # Cache task outputs as well as downloaded Gradle dependencies.
+      GRADLE_OPTS: -Dorg.gradle.caching=true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            plugins/tapilot/package-lock.json
+            tests/midscene/package-lock.json
       - uses: pnpm/action-setup@v4
         with:
           version: '12.4.1'
@@ -155,6 +459,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Restore Gradle dependencies and task outputs
+        uses: gradle/actions/setup-gradle@7ca78c16c887dc6c5f36fd6d0cb0f5c23d940e69 # v6
+        with:
+          # Trusted manual runs can warm the branch cache before merging.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Cache verified native runtime downloads
+        uses: actions/cache@v4
+        with:
+          path: .cache/termux/debs
+          key: ${{ runner.os }}-termux-${{ hashFiles('scripts/fetch-*.sh', 'scripts/termux-package-cache.sh') }}
+          restore-keys: ${{ runner.os }}-termux-
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools

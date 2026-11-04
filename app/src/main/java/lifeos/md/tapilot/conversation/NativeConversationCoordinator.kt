@@ -402,6 +402,7 @@ class NativeConversationCoordinator(
                 else JSONObject().put("MIDSCENE_MODEL_BASE_URL", model.getString("baseUrl"))
                     .put("MIDSCENE_MODEL_API_KEY", key).put("MIDSCENE_MODEL_NAME", model.getString("modelName"))
                     .put("MIDSCENE_MODEL_FAMILY", model.getString("modelFamily"))
+                    .put("MIDSCENE_MODEL_PROTOCOL", if (NativeModelRequest.usesResponses(model)) "openai-responses" else "openai-chat")
         }.getOrElse { fail(it); return }
         val cid = active()
         val before = history()
