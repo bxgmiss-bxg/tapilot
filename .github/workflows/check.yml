@@ -109,6 +109,7 @@ jobs:
           MIDSCENE_MODEL_PROTOCOL: openai-responses
           MIDSCENE_INCLUDE_TAGS: smoke,draft-restart,share-draft,ci-core
           MIDSCENE_EXCLUDE_TAGS: ''
+          TAPILOT_E2E_CI_PARALLEL: '1'
           TAPILOT_E2E_DEVICE_ID: emulator-5554
           TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
           TAPILOT_E2E_SCREEN_INFO: wm

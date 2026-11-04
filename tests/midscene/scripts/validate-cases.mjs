@@ -7,6 +7,7 @@ import project from '../midscene.config.ts';
 const directory = fileURLToPath(new URL('../', import.meta.url));
 const ids = new Set();
 let fixtureCount = 0;
+let ciCount = 0;
 for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${directory}/${folder}`).filter(name => name.endsWith('.yaml')).map(name => `${folder}/${name}`))) {
   const document = yaml.load(readFileSync(`${directory}/${name}`, 'utf8'));
   for (const phase of ['beforeAll', 'beforeEach', 'afterEach', 'afterAll']) {
@@ -19,6 +20,13 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
     const id = test.name.split(' ')[0];
     assert.ok(!ids.has(id), `${id}: duplicate ID`); ids.add(id);
     assert.ok(Array.isArray(test.tags) && test.tags.length, `${id}: tags required`);
+    const lanes = test.tags.filter(tag => /^ci-lane-/.test(tag));
+    const hosted = test.tags.some(tag => ['smoke', 'draft-restart', 'share-draft', 'ci-core'].includes(tag));
+    assert.equal(lanes.length, hosted ? 1 : 0, `${id}: hosted cases must belong to exactly one CI device`);
+    if (hosted) {
+      assert.match(lanes[0], /^ci-lane-[1-4]$/);
+      ciCount++;
+    }
     assert.deepEqual(test.steps[0], { 'app.open': {} }, `${id}: begin with isolated observer setup`);
     for (const step of test.steps.slice(1)) {
       assert.equal(Object.keys(step).length, 1, `${id}: exactly one node per step`);
@@ -42,3 +50,5 @@ for (const name of ['cases', 'fixtures'].flatMap(folder => readdirSync(`${direct
   }
 }
 console.log(`Validated ${ids.size - fixtureCount} Midscene E2E cases and ${fixtureCount} setup fixtures; live tasks are explicitly tagged.`);
+
+assert.equal(ciCount, 11, 'Hosted CI must execute all eleven cases exactly once');

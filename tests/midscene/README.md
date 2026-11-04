@@ -147,7 +147,7 @@ MIDSCENE_INCLUDE_TAGS=evidence pnpm test:e2e:live
 MIDSCENE_INCLUDE_TAGS=calculator,cancellation pnpm test:e2e:live
 ```
 
-All cases run serially with a 30-minute case timeout and zero automatic retries.
+Cases run serially on each device with a 30-minute case timeout and zero automatic retries. Hosted CI uses four isolated devices concurrently.
 A timed-out action must be inspected before rerunning; never replay an uncertain
 mutation automatically. Opening a case creates a fresh device connection and observer agent but retains
 phone data and model login. Chat cases explicitly create a new conversation.
@@ -409,7 +409,7 @@ still determines recovery success. The wait is bounded to 60 seconds.
 ### Automatic APK core flows on hosted CI
 
 Every main push and trusted manual dispatch also runs `APK install and Midscene
-core flows` on an Android 35 Google APIs x86_64 emulator. It builds and installs
+core flows` on four isolated Android 35 Google APIs x86_64 emulators. It builds and installs
 the verification APK, records its source SHA and APK SHA-256, and runs eleven
 cases: UI-01 through UI-05, DRAFT-02, DRAFT-03, CHAT-01, DRAFT-01, CORE-01 and CORE-02.
 The observer uses `gpt-6.1-terra` through the official Responses API. The installed
@@ -435,9 +435,13 @@ Its working directory is `tests/midscene`, matching the native report root.
 Run the configured project without a positional directory so the project-relative
 `cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
 readiness and cleanup; its exit status propagates through the action. The hosted
-job explicitly opts into the resilience profile but selects only
-`smoke,draft-restart,share-draft,ci-core`, so it runs the four core cases without
-network faults. All eleven cases use zero retries. The disposable verification app is pre-granted
+job explicitly opts into the resilience profile. Four disjoint `ci-lane-1` through
+`ci-lane-4` tags partition exactly the same eleven smoke, draft and core cases,
+without network faults. Definition checks reject missing or duplicate lane assignments.
+Each native Midscene project owns one emulator (5554, 5556, 5558 or 5560); projects
+run concurrently while cases on each device stay serial. All devices install the
+same APK and preserve separate identity/log/screenshot evidence. One Midscene run
+produces one complete native report and Summary; there is no custom report wrapper. All eleven cases use zero retries. The disposable verification app is pre-granted
 notification permission before screenshots; microphone and other permissions are
 not granted. Restart assertions wait for the chat to become visible, then
 independently check the retained text and attachment. The fresh emulator contains no
