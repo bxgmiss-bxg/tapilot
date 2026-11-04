@@ -6,6 +6,8 @@
 
 **English** · [简体中文](README.zh.md)
 
+[![E2E by Midscene.js](https://badge.midscenejs.com/by-midscene)](https://midscenejs.com)
+
 Ask Tapilot to open an app, find information on screen or work through a task
 across apps. You can add instructions while it runs, stop it, and review the
 screenshots and actions afterward.

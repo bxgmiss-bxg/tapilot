@@ -205,7 +205,10 @@ jobs:
         if: ${{ always() && steps.apk-pages.outcome == 'success' }}
         env:
           REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
-        run: echo "[Open the Midscene Test report ↗]($REPORT_URL) — all APK cases · $GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          badge=$(cat tests/midscene/midscene_run/ci-badge.md)
+          printf '[%s](%s)\n\n[Open the Midscene Test report ↗](%s) — all APK cases · %s\n' \
+            "$badge" "$REPORT_URL" "$REPORT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e

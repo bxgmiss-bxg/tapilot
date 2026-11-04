@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, globSync, mkdirSync, readFileSync } from 'node:fs';
+import { copyFileSync, globSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { ReportMergingTool } from '@midscene/core/report';
 
@@ -36,5 +36,9 @@ assert.ok(report, 'Native report was not generated');
 const expected = ['CORE-01', 'CORE-02', 'CHAT-01', 'DRAFT-01', 'DRAFT-02', 'DRAFT-03', 'UI-01', 'UI-02', 'UI-03', 'UI-04', 'UI-05'];
 assert.deepEqual(cases.map(item => item.name.split(' ')[0]).sort(), expected.sort(), 'All eleven cases must run exactly once');
 assert.ok(cases.every(item => item.attempts.length === 1), 'Retries or missing attempts are not accepted');
+const passed = cases.filter(item => item.status === 'success').length;
+const failedOrNotRun = cases.length - passed;
+writeFileSync('midscene_run/ci-badge.md',
+  `![Midscene Test: ${passed} passed, ${failedOrNotRun} failed or not run](https://badge.midscenejs.com/e2e?pass=${passed}&fail=${failedOrNotRun}&style=large)\n`);
 console.log(`Complete native report: ${report}; ${cases.filter(item => item.status === 'success').length}/11 passed`);
 if (failed || cases.some(item => item.status !== 'success')) process.exitCode = 1;

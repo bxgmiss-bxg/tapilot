@@ -30,6 +30,8 @@ export default {projects:[{name:'android-${index + 1}',files:{include:['cases.ya
     const dump = JSON.parse(match[1]);
     assert.equal(dump.summary.total, 11);
     assert.equal(dump.summary.failed, 2);
+    assert.match(readFileSync(join(root, 'midscene_run/ci-badge.md'), 'utf8'),
+      /https:\/\/badge\.midscenejs\.com\/e2e\?pass=9&fail=2&style=large/);
     assert.equal(dump.projects.length, 4);
     assert.equal(readdirSync(join(root, '.midscene/test-results')).length, 4);
   } finally { rmSync(root, { recursive: true, force: true }); }
