@@ -48,7 +48,14 @@ cases:
           Create a new Tapilot conversation. Add an attachment through plus and Files.
           In Downloads select only the file whose name starts with tapilot-attachment-qa-.
           Switch to keyboard input if needed and replace the composer text with DRAFT-RESTART-UNSENT without sending.
-          Verify both the attachment chip and the unsent text are present, then stop interacting.
+          Read back the entire draft after keyboard input settles. It must be exactly
+          DRAFT-RESTART-UNSENT, including the final T; DRAFT-RESTART-UNSEN is incomplete.
+          Correct any incomplete input now, before the restart. Verify the attachment chip
+          is present and leave the complete unsent draft visible without submitting.
+      - aiAssert: >-
+          Before restarting, the composer contains exactly DRAFT-RESTART-UNSENT,
+          including the final T, and the tapilot-attachment-qa- text attachment.
+          The conversation has no submitted task.
       - fault.restart: {}
       - app.open: {}
       - aiWaitFor:
