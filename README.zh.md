@@ -53,7 +53,8 @@ Powered by [Midscene](https://github.com/web-infra-dev/midscene)。
 ## 开始使用
 
 需要 **arm64 架构、Android 11 或更高版本**的手机，以及支持的视觉模型。
-目前尚无验证完成的公开发布流程，可按下方步骤构建开发 APK。
+可从[飞书固定地址](https://www.feishu.cn/file/Ig0KbUKlJoADozxRbOocm5iqnXf)下载 Beta APK，
+或使用 [GitHub Release 备用下载](https://github.com/tapilot-ai/tapilot/releases)。
 
 1. 安装 APK，打开 Tapilot，在 Android 无障碍设置中启用 **Tapilot 设备控制**。
 2. 在 Tapilot 设置中配置 HTTP 或 HTTPS 视觉模型 API，或在可用时选择现有的 ChatGPT（SIWC）
@@ -166,14 +167,14 @@ Tapilot 日常自动化不需要 ADB。
 
 ## 可选后台屏幕（实验性）
 
-Debug 版本提供“设置 → 后台屏幕（实验性）→ 用于聊天任务”，默认关闭。
+从 0.1.9 起提供“设置 → 后台屏幕（实验性）→ 用于聊天任务”，默认关闭。
 完成 [Shell 授权、手机端配对和悬浮窗权限设置](docs/experiments/shell-assisted-display.zh.md)后，普通聊天请求可以在独立屏幕打开和操作应用，同时继续使用主屏。
 无边框悬浮窗显示实际画面。需要手动操作时，先点击任务中的“接管”，完成后明确点击继续，模型会重新观察。
 关闭悬浮窗或设置开关会停止任务并释放副屏；连接失败不会把正在执行的任务改到主屏。
 
 设置页保留连接状态和可选的自动恢复，兼容性试用和手动连接方式收进“高级选项”。
 虚拟屏在限定的像素预算内匹配当前手机屏幕的尺寸和密度。应用兼容性、缺少副屏无障碍输入时的中文等文字输入、受保护页面和熄屏使用仍有限制。
-Beta 和 Release 不包含此实验后端。详见[设置说明与限制](docs/experiments/shell-assisted-display.zh.md)。
+此功能仍为实验性功能，使用前必须明确授权 Shell 辅助。详见[设置说明与限制](docs/experiments/shell-assisted-display.zh.md)。
 
 ## 许可证
 
