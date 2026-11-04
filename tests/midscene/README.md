@@ -449,7 +449,11 @@ Each matrix job owns one runner and emulator (5554); jobs run concurrently while
 cases on each device stay serial. A failed lane does not cancel its peers. The
 verification APK is transferred only through a one-day Actions artifact, before
 any model key is provisioned. The shard runners do not install JDK/Gradle or
-rebuild the APK. This authorized CI handoff is not a Beta/Release publication.
+rebuild the APK. Android image preparation runs alongside the shared APK build;
+all test runners restore the same versioned system-image cache instead of each
+downloading it from Google. The cache key intentionally pins the prepared image;
+bump it in `check.yml` when updating the image. Missing cache data fails before
+model use. This authorized CI handoff is not a Beta/Release publication.
 Each runner records the shared APK digest, source revision, workflow run and plan
 digest alongside its installation logs and screenshots. A changed APK, checkout
 or case definition is rejected before installation. Failed-job reruns have distinct

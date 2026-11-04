@@ -11,6 +11,9 @@ on:
         default: false
 permissions:
   contents: read
+env:
+  # Bump this key to intentionally refresh the Android 35 system image.
+  TAPILOT_CI_ANDROID_IMAGE_KEY: tapilot-android35-google-apis-x86_64-v1
 concurrency:
   group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
@@ -43,6 +46,33 @@ jobs:
           path: build/midscene-openai-live/
           if-no-files-found: warn
           retention-days: 7
+  android-image:
+    name: Prepare shared Android image
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Restore the versioned Android system image
+        id: image
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+      - name: Install the image on a cache miss
+        if: steps.image.outputs.cache-hit != 'true'
+        run: sdkmanager 'system-images;android-35;google_apis;x86_64'
+      - name: Verify the cached image identity
+        run: grep -F 'Pkg.Path=system-images;android-35;google_apis;x86_64' "$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
+      - name: Save the image before admitting the test runners
+        if: steps.image.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+
   apk-build:
     name: Build shared verification APK
     outputs:
@@ -117,7 +147,7 @@ jobs:
 
   apk-midscene:
     name: APK core flows (${{ matrix.lane }}/4)
-    needs: apk-build
+    needs: [apk-build, android-image]
     strategy:
       fail-fast: false
       matrix:
@@ -136,12 +166,18 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
-      - name: Install emulator image
+      - name: Restore the shared Android system image
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
+          fail-on-cache-miss: true
+      - name: Verify image identity and emulator availability
         run: |
+          grep -F 'Pkg.Path=system-images;android-35;google_apis;x86_64' "$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
           if [ ! -x "$ANDROID_HOME/emulator/emulator" ]; then
             sdkmanager 'emulator'
           fi
-          sdkmanager 'system-images;android-35;google_apis;x86_64'
       - name: Download the exact APK produced by this run's shared build
         uses: actions/download-artifact@v4
         with:
