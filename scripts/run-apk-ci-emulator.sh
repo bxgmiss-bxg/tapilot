@@ -14,7 +14,7 @@ if adb devices | grep -q '^emulator-5554'; then
   exit 1
 fi
 printf 'no\n' | avdmanager create avd --force --name tapilot-ci --package 'system-images;android-35;google_apis;x86_64' --device pixel_5
-"$emulator" -avd tapilot-ci -port 5554 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none > build/apk-midscene/emulator.log 2>&1 &
+"$emulator" -avd tapilot-ci -port 5554 -partition-size 2048 -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot -camera-back none -camera-front none > build/apk-midscene/emulator.log 2>&1 &
 emulator_pid=$!
 cleanup() {
   adb -s "$TAPILOT_E2E_DEVICE_ID" emu kill >/dev/null 2>&1 || true
