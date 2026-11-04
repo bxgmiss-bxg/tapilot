@@ -26,6 +26,10 @@ cases:
       - task.waitForIdle: {}
       - aiAssert: >-
           The newest Tapilot reply gives 100 as the product of 50 and 2. Its status is
-          completed ("Completed" or "任务已完成"), with zero phone operations. The newest
-          reply must not say "Waiting for your answer" or "等待你的回答". The earlier
-          clarification may still retain its historical waiting status.
+          completed ("Completed" or "任务已完成"), with zero phone operations. For this
+          newest reply, a visible operation counter must be 0; a plain completed answer
+          may instead omit the progress row and Activity entry entirely. A nonzero count
+          or recorded phone action fails this assertion. Do not use the earlier reply's
+          counter as evidence for the newest reply. The newest reply must not say
+          "Waiting for your answer" or "等待你的回答". The earlier clarification may
+          still retain its historical waiting status.

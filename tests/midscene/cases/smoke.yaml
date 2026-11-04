@@ -93,7 +93,8 @@ cases:
       - aiAct: >-
           Return to chat, focus the task composer, and enter exactly CI-DRAFT-NAVIGATION.
           Wait for the keyboard to appear before typing. Do not send or submit.
-          Hide the keyboard only using AndroidBackButton.
+          If the keyboard is still visible after typing, hide it using AndroidBackButton.
+          If it is already hidden, leave it hidden and finish this action without pressing Back.
       - aiAssert: The composer contains CI-DRAFT-NAVIGATION as unsent text.
       - aiAct: Open settings, then return to chat using the top-left back button without changing settings.
       - aiAssert: The composer still contains CI-DRAFT-NAVIGATION as unsent text.

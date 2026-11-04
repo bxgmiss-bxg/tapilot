@@ -486,3 +486,13 @@ are bounded to two minutes in CI; the Stop case explicitly allows one minute
 for shutdown. A stuck task fails and retains its evidence rather than waiting
 past the runner deadline and losing its native report. Local waits retain
 the existing longer default. These deadlines do not make a failed Stop pass.
+
+Duration baseline `41790492872` uses the ten successful current-mainline cases;
+UI-05 retains its earlier successful duration instead of the short failed attempt.
+The draft observer dismisses a visible keyboard and leaves an already hidden one
+alone. Its independent draft/navigation assertions are unchanged. CHAT-01 checks
+the newest reply's operation count; `TaskDetailsView` hides the progress row for a
+plain completed answer with no steps, plan or phone operations. An absent progress
+row is therefore a valid zero-operation state, while a nonzero counter or recorded
+phone action still fails. The earlier clarification's count cannot prove the
+newest reply's count.
