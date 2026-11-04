@@ -431,12 +431,14 @@ is deleted after setup. The harness refuses physical devices and enables the
 verification app's accessibility service on its disposable emulator. No secrets
 are entered through UI prompts or included in test YAML.
 
-The pinned `web-infra-dev/midscene-action` executes the emulator/install/test command,
-uploads the native artifacts, and renders each case result in the job Summary.
-Its working directory is `tests/midscene`, matching the native report root.
+Shard jobs execute the emulator/install/test command and upload native evidence
+without individual report Summaries. The final `Midscene Test report` job alone
+uses the pinned `web-infra-dev/midscene-action` to render all case results in one
+Summary, followed by the dynamic badge and an explicit Cloudflare URL.
+The action's working directory is `tests/midscene`, matching the native report root.
 Run the configured project without a positional directory so the project-relative
 `cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
-readiness and cleanup; its exit status propagates through the action. The hosted
+readiness and cleanup; a nonzero exit status fails its shard job. The hosted
 job explicitly opts into the resilience profile and selects `smoke,draft-restart,share-draft,ci-core`
 without network faults. The build job discovers the selected cases directly from
 YAML and generates four disjoint lanes using longest-processing-time placement.

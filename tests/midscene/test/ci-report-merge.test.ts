@@ -45,7 +45,11 @@ export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/
     assert.equal(dump.summary.failed, 2);
     assert.match(readFileSync(join(root, 'midscene_run/ci-badge.md'), 'utf8'), /pass=9&fail=2/);
     assert.equal(dump.projects.length, 4);
-    assert.equal(readdirSync(join(root, '.midscene/test-results')).length, 4);
+    assert.deepEqual(readdirSync(join(root, '.midscene/test-results')), ['complete']);
+    const summary = readFileSync(join(root, '.midscene/test-results/complete/result.md'), 'utf8');
+    assert.equal(summary.match(/^# Midscene Test$/gm)?.length, 1);
+    for (const id of ids) assert.match(summary, new RegExp(`\\| ${id} \\|`));
+    assert.match(summary, /9\/11 passed/);
     const provenance = join(root, 'shard-results/midscene-apk-shard-1-1/midscene_run/ci/provenance.json');
     const data = JSON.parse(readFileSync(provenance, 'utf8'));
     writeFileSync(provenance, JSON.stringify({ ...data, apkSha256: 'b'.repeat(64) }));

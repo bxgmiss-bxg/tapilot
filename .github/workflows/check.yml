@@ -197,7 +197,9 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Install APK and run real screen core flows with Terra
         id: apk-test
-        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
+        # Shards only produce evidence. The final job owns the native action,
+        # Summary and published entry so this workflow has one report entrance.
+        run: bash scripts/run-apk-ci-emulator.sh
         env:
           MIDSCENE_MODEL_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
           MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
@@ -211,13 +213,17 @@ jobs:
           TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
           TAPILOT_E2E_SCREEN_INFO: wm
           MIDSCENE_REPORT_QUIET: 'true'
+      - name: Upload native shard evidence
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          working-directory: tests/midscene
-          command: bash ../../scripts/run-apk-ci-emulator.sh
-          artifact-name: midscene-apk-shard-${{ matrix.lane }}-${{ github.run_attempt }}
-          retention-days: '7'
-          # Pages publishing below matches delinoio/apps#893 and its token scope.
-          publish-pages: 'false'
+          name: midscene-apk-shard-${{ matrix.lane }}-${{ github.run_attempt }}
+          path: |
+            tests/midscene/midscene_run/
+            tests/midscene/.midscene/
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 7
       - name: Preserve APK identity and visual evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -233,7 +239,7 @@ jobs:
           retention-days: 7
 
   apk-report:
-    name: Complete Midscene APK report
+    name: Midscene Test report
     needs: [apk-build, apk-midscene]
     if: ${{ always() && needs.apk-build.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
@@ -294,9 +300,16 @@ jobs:
         env:
           REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
         run: |
+          set -euo pipefail
+          if [[ ! "$REPORT_URL" =~ ^https://[a-z0-9.-]+\.tapilot-apk-reports\.pages\.dev/?$ ]]; then
+            echo '::error::Cloudflare did not return the expected report URL'
+            exit 1
+          fi
+          curl --fail --silent --show-error --retry 3 --max-time 30 "$REPORT_URL" -o /tmp/published-report.html
+          grep -q 'midscene_test_run_dump' /tmp/published-report.html
           badge=$(cat tests/midscene/midscene_run/ci-badge.md)
-          printf '[%s](%s)\n\n[Open the Midscene Test report ↗](%s) — all APK cases · %s\n' \
-            "$badge" "$REPORT_URL" "$REPORT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          printf '[%s](%s)\n\n[Open all APK cases in Midscene Test ↗](%s)\n\nCloudflare: <%s>\n\nSource: %s\n' \
+            "$badge" "$REPORT_URL" "$REPORT_URL" "$REPORT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
 
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e

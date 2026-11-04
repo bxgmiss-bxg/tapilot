@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { copyFileSync, globSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { globSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
 import { caseId, planDigest } from './ci-shards.ts';
 import { ReportMergingTool } from '@midscene/core/report';
@@ -43,9 +43,6 @@ for (const plannedLane of plan.lanes) {
   assert.deepEqual(summary.projects[0].cases.map(caseId).sort(), [...plannedLane.caseIds].sort(), `Lane ${lane} case selection mismatch`);
   cases.push(...summary.projects[0].cases);
   failed ||= summary.exitCode !== 0 || summary.status !== 'success';
-  const resultDirectory = `.midscene/test-results/lane-${lane}`;
-  mkdirSync(resultDirectory, { recursive: true });
-  copyFileSync(resolve(dirname(summaryPath), summary.markdown), `${resultDirectory}/result.md`);
 }
 const report = merger.mergeReports('midscene-e2e-complete', { outputDir: 'midscene_run/report' });
 assert.ok(report, 'Native report was not generated');
@@ -54,6 +51,15 @@ assert.deepEqual(cases.map(caseId).sort(), expected.sort(), 'Every planned case 
 assert.ok(cases.every(item => item.attempts.length === 1), 'Retries or missing attempts are not accepted');
 const passed = cases.filter(item => item.status === 'success').length;
 const failedOrNotRun = cases.length - passed;
+const resultDirectory = '.midscene/test-results/complete';
+mkdirSync(resultDirectory, { recursive: true });
+const escapeCell = value => String(value).replaceAll('|', '\\|').replaceAll('\n', ' ');
+writeFileSync(`${resultDirectory}/result.md`, [
+  '# Midscene Test', '',
+  `${passed}/${cases.length} passed · ${failedOrNotRun} failed or not run · zero retries`, '',
+  '| Case | Result |', '| --- | --- |',
+  ...cases.map(item => `| ${escapeCell(item.name)} | ${escapeCell(item.status)} |`), '',
+].join('\n'));
 writeFileSync('midscene_run/ci-badge.md',
   `![Midscene Test: ${passed} passed, ${failedOrNotRun} failed or not run](https://badge.midscenejs.com/e2e?pass=${passed}&fail=${failedOrNotRun}&style=large)\n`);
 console.log(`Complete native report: ${report}; ${passed}/${cases.length} passed; shared APK ${plan.apkSha256}`);
