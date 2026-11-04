@@ -137,7 +137,11 @@ jobs:
         with:
           packages: platform-tools
       - name: Install emulator image
-        run: sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64'
+        run: |
+          if [ ! -x "$ANDROID_HOME/emulator/emulator" ]; then
+            sdkmanager 'emulator'
+          fi
+          sdkmanager 'system-images;android-35;google_apis;x86_64'
       - name: Download the exact APK produced by this run's shared build
         uses: actions/download-artifact@v4
         with:
