@@ -480,3 +480,9 @@ it does not publish an HTML index or a second online report entry. Failed cases
 remain failed even when report publication succeeds. PR runs use neither the
 model nor Cloudflare token. APK identity, logs and visual evidence remain
 available as the `apk-midscene-<sha>-<lane>-<attempt>` artifact for seven days.
+
+Hosted shard cases have a six-minute case deadline. Native service-idle waits
+are bounded to two minutes in CI; the Stop case explicitly allows one minute
+for shutdown. A stuck task fails and retains its evidence rather than waiting
+past the runner deadline and losing its native report. Local waits retain
+the existing longer default. These deadlines do not make a failed Stop pass.
