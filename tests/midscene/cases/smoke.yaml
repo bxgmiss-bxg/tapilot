@@ -1,6 +1,6 @@
 cases:
   - name: UI-01 Chat composer and conversation menu
-    tags: [smoke, chat, ci-lane-3]
+    tags: [smoke, chat]
     steps:
       - app.open: {}
       - aiAct: >-
@@ -24,7 +24,7 @@ cases:
           draft and verify the composer is empty again.
 
   - name: UI-02 Toggle automatic reply speech and persist the selection
-    tags: [smoke, settings, speech, ci-lane-4]
+    tags: [smoke, settings, speech]
     steps:
       - app.open: {}
       - aiAct: >-
@@ -53,7 +53,7 @@ cases:
           The switch labeled "自动朗读助手回答" / "Read assistant answers aloud" is visible and on.
 
   - name: UI-03 Settings and device-control guidance
-    tags: [smoke, settings, permissions, ci-lane-4]
+    tags: [smoke, settings, permissions]
     steps:
       - app.open: {}
       - aiAct: >-
@@ -72,7 +72,7 @@ cases:
           Accessibility. Return to chat using the top-left back button.
 
   - name: UI-04 Execution confirmation mode persists across settings navigation
-    tags: [smoke, execution-mode, ci-lane-4]
+    tags: [smoke, execution-mode]
     steps:
       - app.open: {}
       - aiAct: >-
@@ -87,7 +87,7 @@ cases:
       - aiAssert: The composer execution-mode control displays Automatic (YOLO) / 自动执行（YOLO）.
 
   - name: UI-05 Unsent draft survives settings and new conversation navigation
-    tags: [smoke, draft-navigation, ci-lane-1]
+    tags: [smoke, draft-navigation]
     steps:
       - app.open: {}
       - aiAct: >-

@@ -92,9 +92,9 @@ export default defineTestProject<Context>({
   test: { maxConcurrency: 1, testTimeout: 30 * 60_000 },
   projects: [{
     name: ciLane ? `android-${ciLane}` : 'android', setup, retry: 0,
-    files: { include: ['cases/**/*.yaml'] },
+    files: { include: ciLane ? [`.ci-cases/lane-${ciLane}/*.yaml`] : ['cases/**/*.yaml'] },
     tags: {
-      include: ciLane ? [`ci-lane-${ciLane}`] : tags(process.env.MIDSCENE_INCLUDE_TAGS),
+      include: tags(process.env.MIDSCENE_INCLUDE_TAGS),
       exclude: [...tags(process.env.MIDSCENE_EXCLUDE_TAGS), ...(process.env.TAPILOT_E2E_LIVE === '1' ? [] : ['live']), ...(process.env.TAPILOT_E2E_FAULTS === '1' ? [] : ['resilience']), ...(process.env.TAPILOT_E2E_AUTH_FIXTURE === '1' ? [] : ['auth-fixture'])],
     },
   }],

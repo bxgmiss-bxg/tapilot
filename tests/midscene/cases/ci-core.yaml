@@ -1,6 +1,6 @@
 cases:
   - name: CORE-01 Native Settings task completes with screenshot evidence and saved history
-    tags: [live, ci-core, evidence, ci-lane-1]
+    tags: [live, ci-core, evidence]
     steps:
       - app.open: {}
       - aiAct: >-
@@ -35,7 +35,7 @@ cases:
           names are restored. Its execution record entry is still available. No task restarted.
 
   - name: CORE-02 Stop a running phone task and complete a fresh request
-    tags: [live, ci-core, cancellation, ci-lane-2]
+    tags: [live, ci-core, cancellation]
     steps:
       - app.open: {}
       - aiAct: >-

@@ -22,7 +22,11 @@ The APK contains these under `assets/third-party/{npm,native,android}` plus
 `Tapilot-LICENSE.txt`. `verify-apk.mjs` rejects APKs missing these inventories.
 The verification workflow retains the generated evidence as an artifact; release
 verification additionally produces SHA256SUMS and the privacy/license documents.
-Neither workflow uploads an APK while binary redistribution review is incomplete.
+Release verification does not upload an APK while binary redistribution review
+is incomplete. The trusted `Checks` workflow has a narrowly authorized exception
+for job-to-job transfer of its isolated debug verification APK using a one-day
+Actions artifact. That test handoff does not approve Beta/Release publication or
+change any source, notice or rebuild-material requirements below.
 Generated files are ignored, not manually edited or committed.
 
 ## Remaining distribution requirements

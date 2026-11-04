@@ -2,7 +2,7 @@ afterEach:
   - fixture.restore: {}
 cases:
   - name: DRAFT-01 Retry uses the original message while preserving an unrelated draft
-    tags: [live, attachments, retry-draft, ci-core, ci-lane-2]
+    tags: [live, attachments, retry-draft, ci-core]
     steps:
       - app.open: {}
       - fixture.attachment: {}
@@ -38,7 +38,7 @@ cases:
       - aiAct: Remove the test attachment from the composer and clear DRAFT-KEEP-UNSENT without sending.
 
   - name: DRAFT-02 App restart preserves an unsent attachment and text
-    tags: [live, resilience, attachments, draft-restart, ci-lane-3]
+    tags: [live, resilience, attachments, draft-restart]
     steps:
       - app.open: {}
       - fixture.attachment: {}
@@ -72,7 +72,7 @@ cases:
           Close the preview, remove only the draft attachment, and clear the unsent test text.
 
   - name: DRAFT-03 Sharing text preserves the existing unsent attachment
-    tags: [live, attachments, share-draft, ci-lane-3]
+    tags: [live, attachments, share-draft]
     steps:
       - app.open: {}
       - fixture.attachment: {}

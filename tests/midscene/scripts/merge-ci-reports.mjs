@@ -1,15 +1,30 @@
 import assert from 'node:assert/strict';
 import { copyFileSync, globSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
+import { caseId, planDigest } from './ci-shards.ts';
 import { ReportMergingTool } from '@midscene/core/report';
 
 // Use Midscene's own merger: it preserves case status, steps, agent executions,
 // screenshot assets and evidence references. Never manufacture a report landing page.
+const plan = JSON.parse(process.env.TAPILOT_CI_PLAN || 'null');
+assert.equal(plan?.schemaVersion, 1, 'Expected the shared build job plan');
+if (process.env.GITHUB_SHA) assert.equal(plan.sourceSha, process.env.GITHUB_SHA);
+if (process.env.GITHUB_RUN_ID) assert.equal(plan.runId, process.env.GITHUB_RUN_ID);
 const merger = new ReportMergingTool();
 const cases = [];
 let failed = false;
-for (let lane = 1; lane <= 4; lane++) {
-  const root = `shard-results/midscene-apk-shard-${lane}`;
+for (const plannedLane of plan.lanes) {
+  const lane = plannedLane.id;
+  // Re-running one failed job may leave successful lanes from an earlier attempt.
+  const artifacts = [...globSync(`shard-results/midscene-apk-shard-${lane}-*`)]
+    .sort((a, b) => Number(basename(a).split('-').at(-1)) - Number(basename(b).split('-').at(-1)));
+  const root = artifacts[0];
+  assert.ok(root, `Missing lane ${lane} artifact`);
+  const provenance = JSON.parse(readFileSync(`${root}/midscene_run/ci/provenance.json`, 'utf8'));
+  assert.deepEqual(provenance, {
+    sourceSha: plan.sourceSha, runId: plan.runId, apkSha256: plan.apkSha256,
+    planSha256: planDigest(plan), lane,
+  }, `Lane ${lane} must install the exact shared APK and plan`);
   const summaries = [...globSync(`${root}/.midscene/test-results/*/summary.json`)];
   assert.equal(summaries.length, 1, `Lane ${lane} must contain exactly one native run`);
   const summaryPath = summaries[0];
@@ -25,6 +40,7 @@ for (let lane = 1; lane <= 4; lane++) {
     testDuration: summary.durationMs,
     testStatus: summary.status === 'success' ? 'passed' : 'failed',
   } });
+  assert.deepEqual(summary.projects[0].cases.map(caseId).sort(), [...plannedLane.caseIds].sort(), `Lane ${lane} case selection mismatch`);
   cases.push(...summary.projects[0].cases);
   failed ||= summary.exitCode !== 0 || summary.status !== 'success';
   const resultDirectory = `.midscene/test-results/lane-${lane}`;
@@ -33,12 +49,12 @@ for (let lane = 1; lane <= 4; lane++) {
 }
 const report = merger.mergeReports('midscene-e2e-complete', { outputDir: 'midscene_run/report' });
 assert.ok(report, 'Native report was not generated');
-const expected = ['CORE-01', 'CORE-02', 'CHAT-01', 'DRAFT-01', 'DRAFT-02', 'DRAFT-03', 'UI-01', 'UI-02', 'UI-03', 'UI-04', 'UI-05'];
-assert.deepEqual(cases.map(item => item.name.split(' ')[0]).sort(), expected.sort(), 'All eleven cases must run exactly once');
+const expected = plan.cases.map(item => item.id);
+assert.deepEqual(cases.map(caseId).sort(), expected.sort(), 'Every planned case must run exactly once');
 assert.ok(cases.every(item => item.attempts.length === 1), 'Retries or missing attempts are not accepted');
 const passed = cases.filter(item => item.status === 'success').length;
 const failedOrNotRun = cases.length - passed;
 writeFileSync('midscene_run/ci-badge.md',
   `![Midscene Test: ${passed} passed, ${failedOrNotRun} failed or not run](https://badge.midscenejs.com/e2e?pass=${passed}&fail=${failedOrNotRun}&style=large)\n`);
-console.log(`Complete native report: ${report}; ${cases.filter(item => item.status === 'success').length}/11 passed`);
+console.log(`Complete native report: ${report}; ${passed}/${cases.length} passed; shared APK ${plan.apkSha256}`);
 if (failed || cases.some(item => item.status !== 'success')) process.exitCode = 1;

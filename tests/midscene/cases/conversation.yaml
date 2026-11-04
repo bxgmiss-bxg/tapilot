@@ -1,6 +1,6 @@
 cases:
   - name: CHAT-01 General answer completes after a clarification
-    tags: [live, conversation, clarification, ci-core, ci-lane-1]
+    tags: [live, conversation, clarification, ci-core]
     steps:
       - app.open: {}
       - aiAct: >-

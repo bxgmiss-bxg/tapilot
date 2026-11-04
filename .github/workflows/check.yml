@@ -43,12 +43,11 @@ jobs:
           path: build/midscene-openai-live/
           if-no-files-found: warn
           retention-days: 7
-  apk-midscene:
-    name: APK core flows (${{ matrix.lane }}/4)
-    strategy:
-      fail-fast: false
-      matrix:
-        lane: [1, 2, 3, 4]
+  apk-build:
+    name: Build shared verification APK
+    outputs:
+      artifact-name: ${{ steps.handoff.outputs.artifact-name }}
+      plan: ${{ steps.handoff.outputs.plan }}
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -89,21 +88,61 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: npm ci --prefix tests/midscene
       - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
-      - name: Build verification APK while installing the emulator image
+      - name: Build the shared verification APK
         run: |
-          mkdir -p build/apk-midscene
-          sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64' > build/apk-midscene/image-install.log 2>&1 &
-          image_pid=$!
-          trap 'kill "$image_pid" 2>/dev/null || true; wait "$image_pid" 2>/dev/null || true' EXIT
           pnpm runtime:bundle
           pnpm runtime:node
           bash scripts/fetch-node-runtime.sh x86_64
           ./gradlew :app:assembleDebug -Pe2eVerification=true --max-workers=2 --no-parallel --no-daemon
-          if ! wait "$image_pid"; then
-            cat build/apk-midscene/image-install.log
-            exit 1
-          fi
-          trap - EXIT
+      - name: Record shared APK identity and generate balanced case lanes
+        id: handoff
+        shell: bash
+        run: |
+          mkdir -p build/ci-apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk > build/ci-apk/package.txt
+          grep -F "name='lifeos.md.tapilot.e2everify'" build/ci-apk/package.txt
+          cp app/build/outputs/apk/debug/app-debug.apk build/ci-apk/
+          node tests/midscene/scripts/ci-shards.ts plan
+          echo "artifact-name=ci-verification-apk-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
+          echo "plan=$(cat build/ci-apk/ci-plan.json)" >> "$GITHUB_OUTPUT"
+      # Explicitly authorized CI job handoff only; no release APK is published.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.handoff.outputs.artifact-name }}
+          path: build/ci-apk/
+          compression-level: 0
+          if-no-files-found: error
+          retention-days: 1
+
+  apk-midscene:
+    name: APK core flows (${{ matrix.lane }}/4)
+    needs: apk-build
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [1, 2, 3, 4]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+      - run: npm ci --prefix tests/midscene
+      - run: node plugins/tapilot/scripts/patch-midscene-zod.mjs tests/midscene
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+      - name: Install emulator image
+        run: sdkmanager 'emulator' 'system-images;android-35;google_apis;x86_64'
+      - name: Download the exact APK produced by this run's shared build
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.apk-build.outputs.artifact-name }}
+          path: build/ci-apk
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -128,7 +167,7 @@ jobs:
         with:
           working-directory: tests/midscene
           command: bash ../../scripts/run-apk-ci-emulator.sh
-          artifact-name: midscene-apk-shard-${{ matrix.lane }}
+          artifact-name: midscene-apk-shard-${{ matrix.lane }}-${{ github.run_attempt }}
           retention-days: '7'
           # Pages publishing below matches delinoio/apps#893 and its token scope.
           publish-pages: 'false'
@@ -136,7 +175,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: apk-midscene-${{ github.sha }}-${{ matrix.lane }}
+          name: apk-midscene-${{ github.sha }}-${{ matrix.lane }}-${{ github.run_attempt }}
           path: |
             build/apk-midscene/
             tests/midscene/midscene_run/
@@ -148,8 +187,8 @@ jobs:
 
   apk-report:
     name: Complete Midscene APK report
-    needs: apk-midscene
-    if: ${{ always() && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
+    needs: [apk-build, apk-midscene]
+    if: ${{ always() && needs.apk-build.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -166,6 +205,8 @@ jobs:
           path: tests/midscene/shard-results
       - name: Merge all native Midscene reports and check coverage
         id: apk-test
+        env:
+          TAPILOT_CI_PLAN: ${{ needs.apk-build.outputs.plan }}
         uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
         with:
           working-directory: tests/midscene

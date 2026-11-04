@@ -3,3 +3,5 @@ node_modules/
 midscene_run/
 .midscene/
 midscene-node-spec.*.md
+.ci-cases/
+shard-results/

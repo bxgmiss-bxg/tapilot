@@ -410,8 +410,9 @@ still determines recovery success. The wait is bounded to 60 seconds.
 
 Every main push and trusted manual dispatch also runs `APK install and Midscene
 core flows` on four isolated Android 35 Google APIs x86_64 emulators with
-three-button system navigation, so file-picker drawer swipes do not trigger Back. It builds and installs
-the verification APK, records its source SHA and APK SHA-256, and runs eleven
+three-button system navigation, so file-picker drawer swipes do not trigger Back.
+A build job produces the verification APK once; each test runner downloads and
+installs those exact bytes after checking the source SHA and APK SHA-256. It runs eleven
 cases: UI-01 through UI-05, DRAFT-02, DRAFT-03, CHAT-01, DRAFT-01, CORE-01 and CORE-02.
 The observer uses `gpt-6.1-terra` through the official Responses API. The installed
 app uses the same official model for real multi-turn answers, historical retries,
@@ -436,16 +437,30 @@ Its working directory is `tests/midscene`, matching the native report root.
 Run the configured project without a positional directory so the project-relative
 `cases/**/*.yaml` include pattern is resolved exactly once. The command owns emulator startup, bounded boot
 readiness and cleanup; its exit status propagates through the action. The hosted
-job explicitly opts into the resilience profile. Four disjoint `ci-lane-1` through
-`ci-lane-4` tags partition exactly the same eleven smoke, draft and core cases,
-without network faults. Definition checks reject missing or duplicate lane assignments.
-Each matrix job owns one runner and one emulator (5554); jobs run concurrently
-while cases on each device stay serial. A failed lane does not cancel its peers. Each runner builds the
-same source revision and preserves its own APK digest, identity, logs and screenshots.
-Emulator image installation overlaps APK compilation; neither step is skipped. The final job uses Midscene's `ReportMergingTool` to combine all four native reports
-and preserve their execution evidence. The pinned action renders their native
-case summaries. Missing lanes, missing/duplicate cases, retries and failures fail
-the aggregation gate; there is no custom HTML report wrapper. All eleven cases use zero retries. The disposable verification app is pre-granted
+job explicitly opts into the resilience profile and selects `smoke,draft-restart,share-draft,ci-core`
+without network faults. The build job discovers the selected cases directly from
+YAML and generates four disjoint lanes using longest-processing-time placement.
+`ci-timings.json` records measured durations from a successful source run; unseen
+cases use a conservative estimate and join the least-loaded lane automatically.
+There are no lane tags to maintain in case definitions. Original YAML steps,
+cleanup phases and case order within each document are preserved.
+
+Each matrix job owns one runner and emulator (5554); jobs run concurrently while
+cases on each device stay serial. A failed lane does not cancel its peers. The
+verification APK is transferred only through a one-day Actions artifact, before
+any model key is provisioned. The shard runners do not install JDK/Gradle or
+rebuild the APK. This authorized CI handoff is not a Beta/Release publication.
+Each runner records the shared APK digest, source revision, workflow run and plan
+digest alongside its installation logs and screenshots. A changed APK, checkout
+or case definition is rejected before installation. Failed-job reruns have distinct
+artifact names; aggregation uses the latest attempt for each lane.
+
+The final job uses Midscene's `ReportMergingTool` to combine all native reports.
+It refuses mixed APK/source/plan identities, missing lanes and missing/duplicate
+cases. The pinned action renders the case summaries, and the Summary links
+directly to one complete native report with steps and screenshot evidence.
+The dynamic badge uses the merged case outcomes. No custom HTML landing page is
+generated. All eleven cases use zero retries. The disposable verification app is pre-granted
 notification permission before screenshots; microphone and other permissions are
 not granted. Restart assertions wait for the chat to become visible, then
 independently check the retained text and attachment. The fresh emulator contains no
@@ -453,9 +468,9 @@ personal accounts. Screenshots and reports are
 published to the dedicated `tapilot-apk-reports` Cloudflare Pages project, with
 a per-run preview URL in the CI Summary. Pages publication follows delinoio/apps#893; the action's separate Workers
 publisher is disabled. This project requires the configured Pages-edit token.
-The Summary links directly to the unchanged native report containing all selected
+The Summary links directly to the native report containing all selected
 APK cases. The separate API integration check retains artifact diagnostics only;
 it does not publish an HTML index or a second online report entry. Failed cases
 remain failed even when report publication succeeds. PR runs use neither the
 model nor Cloudflare token. APK identity, logs and visual evidence remain
-available as the `apk-midscene-<sha>` artifact for seven days.
+available as the `apk-midscene-<sha>-<lane>-<attempt>` artifact for seven days.

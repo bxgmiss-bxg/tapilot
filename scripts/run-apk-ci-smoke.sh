@@ -2,7 +2,8 @@
 set -euo pipefail
 : "${TAPILOT_E2E_DEVICE_ID:?Select the CI emulator explicitly}"
 serial="$TAPILOT_E2E_DEVICE_ID"
-apk=app/build/outputs/apk/debug/app-debug.apk
+apk=build/ci-apk/app-debug.apk
+node tests/midscene/scripts/ci-shards.ts prepare
 mkdir -p build/apk-midscene
 adb -s "$serial" get-state
 adb -s "$serial" shell getprop ro.product.cpu.abilist | tee build/apk-midscene/abis.txt

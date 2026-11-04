@@ -6,22 +6,35 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { runTestProject } from '@midscene/test/config';
+import { collectCases, createPlan, digest, prepareShard } from '../scripts/ci-shards.ts';
 
-test('native report merge retains all cases, evidence hierarchy and failed verdicts', async () => {
+test('native merge retains all cases and failed verdicts and refuses mixed APK evidence', async () => {
   const root = mkdtempSync(join(tmpdir(), 'tapilot-report-merge-'));
   const sdk = import.meta.resolve('@midscene/test');
   const merger = fileURLToPath(new URL('../scripts/merge-ci-reports.mjs', import.meta.url));
-  const lanes = [['CORE-01', 'CHAT-01', 'UI-05'], ['CORE-02', 'DRAFT-01'], ['DRAFT-02', 'DRAFT-03', 'UI-01'], ['UI-02', 'UI-03', 'UI-04']];
+  const ids = ['CORE-01', 'CORE-02', 'CHAT-01', 'DRAFT-01', 'DRAFT-02', 'DRAFT-03', 'UI-01', 'UI-02', 'UI-03', 'UI-04', 'UI-05'];
+  const source = JSON.stringify({ cases: ids.map(name => ({ name, tags: ['smoke'], steps: [{ probe: { fail: ['CORE-02', 'DRAFT-01'].includes(name) } }] })) });
   try {
-    for (let index = 0; index < lanes.length; index++) {
-      const directory = join(root, `shard-results/midscene-apk-shard-${index + 1}`);
-      mkdirSync(directory, { recursive: true });
-      writeFileSync(join(directory, 'cases.yaml'), JSON.stringify({ cases: lanes[index].map(name => ({ name, steps: [{ probe: {} }] })) }));
+    mkdirSync(join(root, 'cases'));
+    writeFileSync(join(root, 'cases/cases.yaml'), source);
+    const apk = join(root, 'fixture.apk');
+    writeFileSync(apk, 'fixture APK bytes');
+    const identity = { sourceSha: 'a'.repeat(40), runId: '42', apkSha256: digest(readFileSync(apk)) };
+    const plan = createPlan(collectCases(root), {}, identity);
+    for (const lane of plan.lanes) {
+      const directory = join(root, `shard-results/midscene-apk-shard-${lane.id}-1`);
+      mkdirSync(join(directory, 'cases'), { recursive: true });
+      writeFileSync(join(directory, 'cases/cases.yaml'), source);
+      prepareShard(plan, lane.id, { apk, root: directory, sourceSha: identity.sourceSha, runId: identity.runId,
+        evidenceDirectory: join(directory, 'midscene_run/ci') });
       writeFileSync(join(directory, 'config.mjs'), `import {defineNode,z} from ${JSON.stringify(sdk)};
-export default {projects:[{name:'android-${index + 1}',files:{include:['cases.yaml']},retry:0}],nodes:[defineNode({name:'probe',inputSchema:z.strictObject({}),execute(){${index === 1 ? "throw new Error('deliberate fixture failure')" : "return {summary:'fixture evidence'}"}}})]};`);
+export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/lane-${lane.id}/*.yaml']},retry:0}],nodes:[defineNode({name:'probe',inputSchema:z.strictObject({fail:z.boolean()}),execute({input}){if(input.fail)throw new Error('deliberate fixture failure');return {summary:'fixture evidence'};}})]};`);
       await runTestProject({ cwd: directory, projectRoot: directory, configPath: join(directory, 'config.mjs') });
     }
-    const result = spawnSync(process.execPath, [merger], { cwd: root, encoding: 'utf8' });
+    const runMerge = () => spawnSync(process.execPath, [merger], { cwd: root, encoding: 'utf8', env: {
+      ...process.env, GITHUB_SHA: identity.sourceSha, GITHUB_RUN_ID: identity.runId, TAPILOT_CI_PLAN: JSON.stringify(plan),
+    } });
+    const result = runMerge();
     assert.equal(result.status, 1, result.stderr);
     assert.match(result.stdout, /9\/11 passed/);
     const html = readFileSync(join(root, 'midscene_run/report/midscene-e2e-complete.html'), 'utf8');
@@ -30,9 +43,14 @@ export default {projects:[{name:'android-${index + 1}',files:{include:['cases.ya
     const dump = JSON.parse(match[1]);
     assert.equal(dump.summary.total, 11);
     assert.equal(dump.summary.failed, 2);
-    assert.match(readFileSync(join(root, 'midscene_run/ci-badge.md'), 'utf8'),
-      /https:\/\/badge\.midscenejs\.com\/e2e\?pass=9&fail=2&style=large/);
+    assert.match(readFileSync(join(root, 'midscene_run/ci-badge.md'), 'utf8'), /pass=9&fail=2/);
     assert.equal(dump.projects.length, 4);
     assert.equal(readdirSync(join(root, '.midscene/test-results')).length, 4);
+    const provenance = join(root, 'shard-results/midscene-apk-shard-1-1/midscene_run/ci/provenance.json');
+    const data = JSON.parse(readFileSync(provenance, 'utf8'));
+    writeFileSync(provenance, JSON.stringify({ ...data, apkSha256: 'b'.repeat(64) }));
+    const mismatched = runMerge();
+    assert.equal(mismatched.status, 1);
+    assert.match(mismatched.stderr, /must install the exact shared APK/);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });

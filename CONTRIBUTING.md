@@ -93,8 +93,12 @@ model-free. A local pass does not establish a Linux-hosted CI pass, a production
 signing check, or physical-device E2E acceptance.
 
 Pull requests run `.github/workflows/check.yml` with development signing only.
-The APK is built and verified but is not uploaded while third-party binary
-redistribution review remains incomplete. The manually dispatched
+Pull-request APK checks do not upload binaries. Main pushes and trusted manual
+runs additionally build an isolated debug verification APK once and transfer it
+through a one-day Actions artifact to the test runners. This explicitly authorized
+CI handoff is limited to `lifeos.md.tapilot.e2everify`; its APK digest and source
+revision must match on every runner. It does not authorize a Beta/Release upload
+or establish third-party redistribution readiness. The manually dispatched
 `release-check.yml` uses the `release` environment; configure that environment's
 reviewers and secrets before enabling production builds. It verifies an APK and
 uploads verification/license evidence; it does not upload the APK or publish a release.
