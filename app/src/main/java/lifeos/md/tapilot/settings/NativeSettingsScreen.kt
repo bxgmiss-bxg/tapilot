@@ -54,6 +54,15 @@ fun NativeSettingsScreen(coordinator: NativeConversationCoordinator, activity: A
     var clearHistory by remember { mutableStateOf(false) }
     var floating by remember { mutableStateOf(FloatingBallPreferences.isEnabled(activity)) }
     var edge by remember { mutableStateOf(EdgeEffectPreferences.get(activity)) }
+    val backgroundPreferences = remember { activity.getSharedPreferences("shell-assistance", android.content.Context.MODE_PRIVATE) }
+    var backgroundEnabled by remember { mutableStateOf(backgroundPreferences.getBoolean("background-enabled", false)) }
+    DisposableEffect(backgroundPreferences) {
+        val listener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { prefs, _ ->
+            backgroundEnabled = prefs.getBoolean("background-enabled", false)
+        }
+        backgroundPreferences.registerOnSharedPreferenceChangeListener(listener)
+        onDispose { backgroundPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
     val busy = coordinator.settingsBusy
     TapilotTheme(dark, paletteId) {
         ThemeBackdrop(dark) {
@@ -156,6 +165,12 @@ fun NativeSettingsScreen(coordinator: NativeConversationCoordinator, activity: A
                     ToggleRow(label("高级 YAML 模式", "Advanced YAML mode"), coordinator.data.optBoolean("advanced")) { coordinator.preference("advanced", it) }
                     SettingRow(label("清空聊天记录", "Clear chat history"), "") { clearHistory = true }
                     SettingRow(label("检查执行引擎", "Check execution engine"), "") { coordinator.settingsCall("runtime.doctor") }
+                }
+                Group(label("后台屏幕", "Background screen")) {
+                    SettingRow(label("后台屏幕（实验性）", "Background screen (Experimental)"), if (backgroundEnabled) label("已开启", "On") else label("已关闭", "Off")) {
+                        activity.startActivity(android.content.Intent().setClassName(activity,
+                            "lifeos.md.tapilot.shell.ShellSetupActivity"))
+                    }
                 }
                 Group(label("关于 Tapilot", "About Tapilot")) { AppUpdateSettings(activity, zh) }
             }

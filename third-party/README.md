@@ -41,27 +41,30 @@ debug information). The manifest records both file hashes and the matching
 sections. The complete NDK archive is pinned as a reproducible notice source;
 it is not substituted for the remaining native corresponding-source review.
 
-## Remaining blockers
+## Reviewed 0.1.8 materials
 
-- This is a materials collection, not a completed binary redistribution review.
-- Sharp 0.35.5 and sharp-libvips 1.3.4 source revisions come from their npm
-  release metadata. The libvips versions match the WASM package's `versions.json`.
-  However, `build/wasm.sh` defaults to the moving wasm-vips `HEAD`. The precise
-  wasm-vips/toolchain source revision used by the distributed binary, all component
-  source archives, and a verified rebuild/relink procedure are still needed.
-  The GPL/LGPL texts and upstream component notice list alone do not fill this gap.
-- The Termux snapshot is a retained recipe reference, not proof that it produced
-  every pinned `.deb`. Identify the corresponding recipe revisions and sources,
-  and retain the native component notices before distribution.
-- Some npm packages omit full license texts. `proxy-agent-negotiate@1.1.0`
-  remains unresolved. The generated inventory preserves unresolved entries
-  rather than inventing terms.
-- Maven source archives and POMs preserve the attribution evidence used by the
-  generated notices. Further bundled third-party components, if discovered, must
-  retain their own notices rather than inheriting the parent artifact's license.
-- Device acceptance and production signing are separate from these materials.
+The exact rebuilt Sharp package is recorded in `sharp-rebuild.json`. Its archive
+and every installed file are checked before packaging; the original npm binary
+does not inherit this review merely because its version matches. Full component
+notices are extracted from the retained source archives and Rust vendor tree.
 
-Do not change `redistributionApproved` to true merely because this command passes.
+`materials-verification.json` records the successful verification of all 151
+entries in `sources.lock.json`. `distribution-review.json` binds that receipt and
+the Sharp rebuild record by SHA-256. Run
+`node scripts/review-distribution-materials.mjs` to validate these bindings and
+prepare the distribution gate. Changing either lock or rebuilt files invalidates
+the review. `prepare-distribution-materials.mjs` remains a collection command and
+does not grant approval on its own.
+
+Native source versions and the exact Node, c-ares and SQLite Termux recipe
+snapshots are retained in the source lock. The remaining native recipes match
+the retained baseline; libc++ notice provenance is documented above. This is a
+source/notice review, not a claim that all native binaries reproduce bit-for-bit.
+
+See [rebuild instructions and failed-run history](REBUILD.zh.md). Source archives,
+static libraries, Sharp sources, the build dependency lock and full notices are
+staged with the corresponding release. Signing, APK integrity and device
+acceptance must still pass before publication.
 
 ### Missing npm notice provenance checked on 2026-10-29
 
@@ -84,6 +87,34 @@ wrong username/password, unequal lengths, empty password and missing credentials
 are rejected. This replacement does not approve redistribution of the removed
 package, nor change the separate desktop dependency trees.
 
-`proxy-agent-negotiate` remains blocked pending an attributable upstream notice
-or a separately validated replacement. No upstream issue was submitted as part
-of this check.
+The Android bundle removes `proxy-agent-negotiate` from the exact 9.1.0 HTTP
+and HTTPS proxy agents with scoped overrides and pinned patches. Automatic
+Kerberos authentication now fails explicitly; it already required the absent
+native `kerberos` package. Basic authentication, CONNECT and explicit
+`onProxyAuth` callbacks remain available. A real loopback proxy regression test
+exercises those paths. Callback types are defined from the licensed proxy-agent
+call sites; no implementation or notice is copied from the removed package.
+Desktop/plugin dependency trees are unchanged. No upstream issue was submitted.
+
+### WASM rebuild evidence
+
+`wasm-provenance.json` separates facts from inference: the upstream release job
+records the sharp-libvips revision and exact Emscripten image digest, but records
+wasm-vips as `HEAD`. The candidate source archive matches the sole latest commit
+before that build. This is not proof of a bit-for-bit match to the shipped binary.
+
+The isolated `rebuild-wasm-materials.yml` workflow rebuilds from this candidate,
+retains the top-level source archive, the actual downloaded dependency archives
+and patches, and vendors the Rust dependencies. It does not set distribution
+approval, replace APK bytes, or publish a release. The successful Sharp relink and source verification are recorded above.
+The original packaging failure and its hash-verified recovery remain documented
+in `REBUILD.zh.md`; do not interpret the original green run as full success.
+
+## Current mainline dependency notices
+
+The Pi 1.4.0 supplements retain the root MIT license from release tag `v1.4.0`,
+commit `4a080252f06caf63a525d7873c5d94d3c23887e0`. The `packages/agent`,
+`packages/ai` and `packages/telemetry` manifests at that revision each declare
+version 1.4.0 and MIT. Each exact package/version has its own checksum-bound
+notice entry; the existing 1.1.0 entries remain for the separately pinned direct
+AI dependency. The runtime versions are not downgraded to the 0.1.8 baseline.

@@ -63,8 +63,8 @@ Tasks stopped by opening the floating conversation panel also show the handoff c
 
 ## Try it
 
-Requires an **arm64 Android 11+** phone and a supported vision model. There is no
-verified public release pipeline yet; build a development APK using the steps below.
+Requires an **arm64 Android 11+** phone and a supported vision model. Download the [Beta APK](https://www.feishu.cn/file/Ig0KbUKlJoADozxRbOocm5iqnXf)
+or use the [GitHub release fallback](https://github.com/tapilot-ai/tapilot/releases).
 
 1. Install the APK, open Tapilot and enable **Tapilot device control** in Android
    Accessibility settings.
@@ -194,6 +194,20 @@ for the Android runtime, [Android Jetpack Compose](https://developer.android.com
 for the native UI, and the [Model Context Protocol](https://github.com/modelcontextprotocol)
 for the computer plugin. See [CREDITS.md](CREDITS.md) for more upstream projects,
 license identifiers and redistribution work still required before release.
+
+## Optional background screen (Experimental)
+
+Starting with 0.1.9, builds offer **Settings → Background screen (Experimental) → Use for chat tasks**, off by default.
+After [shell authorization, phone-side pairing and overlay permission](docs/experiments/shell-assisted-display.md),
+normal chat requests can open and operate installed apps on a separate screen while the main screen remains available.
+The borderless floating preview shows the actual captured screen. Use the task's **Take over** action before manual input,
+then explicitly continue with a fresh observation. Closing the preview or disabling the setting stops the task and releases the display.
+Connection failures never redirect an ongoing task to the main screen.
+
+Connection status and optional recovery remain visible in settings. Compatibility trials and manual connection methods
+are under **Advanced**. Display dimensions and density follow the current phone screen within a bounded capture budget.
+App compatibility, Unicode input without display-scoped accessibility, protected pages and screen-off use remain limited.
+The feature remains experimental and requires explicit shell authorization before use. See [setup and limits](docs/experiments/shell-assisted-display.md).
 
 ## License
 

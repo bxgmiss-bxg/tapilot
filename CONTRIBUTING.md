@@ -95,13 +95,15 @@ signing check, or physical-device E2E acceptance.
 Pull requests run `.github/workflows/check.yml` with development signing only.
 Pull-request APK checks do not upload binaries. Main pushes and trusted manual
 runs additionally build an isolated debug verification APK once and transfer it
-through a one-day Actions artifact to the test runners. This explicitly authorized
-CI handoff is limited to `lifeos.md.tapilot.e2everify`; its APK digest and source
-revision must match on every runner. It does not authorize a Beta/Release upload
-or establish third-party redistribution readiness. The manually dispatched
-`release-check.yml` uses the `release` environment; configure that environment's
-reviewers and secrets before enabling production builds. It verifies an APK and
-uploads verification/license evidence; it does not upload the APK or publish a release.
+through a one-day Actions artifact to the test runners. This CI handoff is limited
+to `lifeos.md.tapilot.e2everify`; its APK digest and source revision must match on
+every runner. It does not authorize a Beta/Release upload or establish third-party
+redistribution readiness.
+The tag-triggered or manually dispatched `release-check.yml` uses the `release`
+environment; configure its reviewers and secrets before production builds. It
+validates source-review receipts and distribution readiness, then uploads the
+signed APK and evidence as an Actions artifact. It does not publish a public
+release; see [deployment](docs/deployment.md).
 
 Production builds require:
 

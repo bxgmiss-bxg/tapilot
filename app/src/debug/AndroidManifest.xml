@@ -2,6 +2,8 @@
     <application>
         <receiver android:name=".performance.CiModelSetupReceiver"
             android:exported="true" android:permission="android.permission.DUMP" />
+        <activity android:name=".experiment.BackgroundDisplayActivity"
+            android:exported="true" android:permission="android.permission.DUMP" />
         <receiver android:name=".performance.PerformanceExperimentReceiver"
             android:exported="true" android:permission="android.permission.DUMP" />
     </application>
