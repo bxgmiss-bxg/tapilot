@@ -4,7 +4,10 @@ import { execFileSync } from 'node:child_process';
 import { constants } from 'node:fs';
 
 export function runtimeInUse(directory) {
-  if (process.platform === 'win32') return true; // No reliable process-path inventory here.
+  // Darwin comm includes executable paths; Linux comm exposes only a process
+  // name, so absence of a path cannot prove that managed code is unused.
+  // Retain the runtime on platforms without a reliable path inventory.
+  if (process.platform !== 'darwin') return true;
   try {
     // Executable names only. Never inspect argv, which may contain credentials.
     return execFileSync('ps', ['-axww', '-o', 'comm='], { encoding: 'utf8', timeout: 5000 })
