@@ -51,10 +51,10 @@ for (const plannedLane of plan.lanes) {
   cases.push(...summary.projects[0].cases);
   failed ||= summary.exitCode !== 0 || summary.status !== 'success';
 }
-let report = merger.mergeReports('midscene-e2e-complete', { outputDir: 'midscene_run/report' });
+let report = merger.mergeReports('midscene-e2e-complete', { outputDir: 'midscene_run/report', outputFormat: 'html-and-external-assets' });
 assert.ok(report, 'Native report was not generated');
 // Newer SDKs can emit a single HTML when no lane captured screenshots. Publish
-// those exact SDK bytes at the same Pages entry, without generating a wrapper.
+// those exact SDK bytes at the same publication entry, without generating a wrapper.
 if (basename(report) !== 'index.html') {
   const entry = resolve('midscene_run/report/midscene-e2e-complete/index.html');
   mkdirSync(dirname(entry), { recursive: true });

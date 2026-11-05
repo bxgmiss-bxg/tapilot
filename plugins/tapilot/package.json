@@ -20,7 +20,7 @@
   },
   "dependencies": {
     "@img/sharp-wasm32": "0.35.5",
-    "@midscene/core": "1.17.4",
+    "@midscene/core": "1.17.6",
     "@modelcontextprotocol/ext-apps": "1.7.5",
     "@modelcontextprotocol/sdk": "1.32.1",
     "bonjour-service": "1.4.4",
