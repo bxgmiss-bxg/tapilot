@@ -3,7 +3,7 @@ import { dirname, join, resolve, isAbsolute } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash, randomUUID } from 'node:crypto';
 import lockfile from 'proper-lockfile';
-import { publishEntries } from './entries.mjs';
+import { publishEntries, entryMatches } from './entries.mjs';
 import { parse, modify, applyEdits } from 'jsonc-parser';
 import { clientConfiguration, packageRoot } from './catalog.mjs';
 import { clientSkill, skillLauncher, connectorLauncher } from './skills.mjs';
@@ -36,7 +36,7 @@ async function atomic(path, text) {
 function locations(client, options) {
   const home = options.home ?? homedir();
   const directory = join(options.dataRoot ?? join(home, '.local/share/tapilot/clients'), client);
-  const skillsRoot = options.skillsRoot ?? process.env.TAPILOT_SKILLS_DIR ?? join(home, 'Library/Mobile Documents/com~apple~CloudDocs/Agents/skills');
+  const skillsRoot = options.skillsRoot ?? process.env.TAPILOT_SKILLS_DIR ?? join(home, process.platform === 'darwin' ? 'Library/Mobile Documents/com~apple~CloudDocs/Agents/skills' : '.local/share/tapilot/skills');
   if (!isAbsolute(skillsRoot)) throw new Error('Skill directory must be an absolute path');
   return { directory, record: join(directory, 'installation.json'), skill: join(skillsRoot, 'tapilot-clients', client, 'tapilot'), launcher: join(directory, 'mcp.mjs') };
 }
@@ -78,7 +78,7 @@ async function installPreparedClient(client, options) {
   const probe = !plan.connector && !plan.pluginDirectory ? { protocol: 'not_applicable', hostRendering: client === 'cherry' ? 'not_tested' : 'not_applicable', phone: 'not_tested' }
     : await (options.probe ?? (plan.connector ? probeConnector : probeDshPlugin))(plan.connector ?? plan.pluginDirectory);
   const entryRoot = join(plan.directory, 'current');
-  const entryNode = join(plan.directory, 'node');
+  const entryNode = join(plan.directory, process.platform === 'win32' ? 'node.exe' : 'node');
   if (client === 'dsh') {
     plan.pluginDirectory = join(entryRoot, 'integrations/dsh');
     plan.instructions = plan.instructions.map(text => text.replaceAll(root, entryRoot));
@@ -134,7 +134,7 @@ async function installPreparedClient(client, options) {
       await rename(staged, plan.skill); staged = null; swapped = true;
       if (plan.skillLink && !await info(plan.skillLink)) {
         await mkdir(dirname(plan.skillLink), { recursive: true });
-        await symlink(plan.skill, plan.skillLink, 'dir'); linked = true;
+        await symlink(plan.skill, plan.skillLink, process.platform === 'win32' ? 'junction' : 'dir'); linked = true;
       }
       const { dispose, ...runtime } = options.runtime;
       entries = await publishEntries(plan.directory, runtime, record?.entries);
@@ -196,7 +196,7 @@ export async function uninstallClient(client, options = {}) {
     await rm(plan.record);
     for (const [name, target] of Object.entries(record.entries ?? {})) {
       const file = join(plan.directory, name);
-      if ((await info(file))?.isSymbolicLink() && await readlink(file) === target) await rm(file);
+      if (await info(file) && await entryMatches(file, target)) await rm(file);
     }
     // A shared phone daemon may have been started by this client and still serve
     // another client. DSH may also have this package loaded under its own Node.

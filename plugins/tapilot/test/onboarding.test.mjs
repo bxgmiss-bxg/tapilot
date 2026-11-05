@@ -1,3 +1,4 @@
+import { sameLink } from '../server/clients/entries.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, readFile, readlink, unlink, symlink } from 'node:fs/promises';
@@ -26,7 +27,7 @@ test('onboarding runs the installed connector and leaves native/phone acceptance
   const updated = await clientCommand('onboard', { client: 'workbuddy' }, options);
   assert.deepEqual(updated.launcher, first.launcher);
   assert.equal(await readFile(first.configFile, 'utf8'), config, 'host config stays stable across updates');
-  assert.equal(await readlink(join(first.directory, 'current')), packageRoot);
+  assert.ok(sameLink(await readlink(join(first.directory, 'current')), packageRoot));
   const record = await readFile(first.record, 'utf8');
   await unlink(join(first.directory, 'current'));
   await symlink(options.home, join(first.directory, 'current'), 'dir');
@@ -96,7 +97,7 @@ test('a standalone imported Skill finds a Cherry-only installation without a che
   await mkdir(loose, {recursive:true});
   await cp(join(packageRoot,'skills/tapilot/scripts/tapilot.mjs'),join(loose,'tapilot.mjs'));
   const {stdout} = await promisify(execFile)(process.execPath,[join(loose,'tapilot.mjs'),'--help'],{
-    env:{HOME:options.home,PATH:'/usr/bin:/bin'},timeout:15000,
+    env:{...process.env,HOME:options.home,USERPROFILE:options.home,TAPILOT_ROOT:'',ANDROID_USE_ROOT:''},timeout:15000,
   });
   assert.ok(stdout.includes('Tapilot CLI'));
   assert.equal(installed.diagnostics.protocol,'not_applicable');
