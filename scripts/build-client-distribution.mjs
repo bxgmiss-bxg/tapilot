@@ -32,6 +32,11 @@ fs.mkdirSync(path.join(desktop, 'bin'), { recursive: true });
 const bundledNode = path.join(desktop, 'bin', process.platform === 'win32' ? 'node.exe' : 'node');
 fs.copyFileSync(process.execPath, bundledNode);
 fs.chmodSync(bundledNode, 0o755);
+// Redistribute the exact Node binary with its upstream notices.
+const nodeLicense = path.resolve(path.dirname(fs.realpathSync(process.execPath)), '../LICENSE');
+if (!fs.existsSync(nodeLicense)) throw new Error('The selected Node distribution must include its LICENSE');
+fs.copyFileSync(nodeLicense, path.join(desktop, 'NODE-LICENSE.txt'));
+json(path.join(desktop, 'runtime-version.json'), { node: process.version, platform: process.platform, arch: process.arch, tapilot: pkg.version });
 if (process.platform === 'darwin') {
   fs.writeFileSync(path.join(desktop, 'Install Tapilot.command'), `#!/bin/sh
 set -eu
