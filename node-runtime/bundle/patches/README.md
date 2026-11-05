@@ -1,6 +1,6 @@
 # Deployment patches
 
-`midscene-test-unbounded.patch` applies only to `@midscene/test@1.15.2`.
+`midscene-test-unbounded.patch` applies only to `@midscene/test@1.17.6`.
 It accepts `testTimeout: 0` and translates it to the runner's unbounded timeout,
 so Tapilot's explicit task cancellation and budgets govern long-running tasks.
 Both ESM and CommonJS entrypoints are patched.
@@ -15,7 +15,7 @@ fingerprint includes patch content and configuration. Remove the patch and its
 lockfile entry together once an upstream version supports this behavior, then run
 the deployment tests, YAML smoke projects and device cancellation acceptance.
 
-`midscene-core-runtime.patch` applies to `@midscene/core@1.15.2` (ESM and
+`midscene-core-runtime.patch` applies to `@midscene/core@1.17.6` (ESM and
 CommonJS). Pixel bounding boxes may use the image width/height as exclusive far
 edges, with at most one further pixel of edge rounding tolerated. The existing
 pixel mapper clips those edges to the last pixel. Origins,
@@ -37,3 +37,9 @@ independent final screenshot verification is unchanged. The real brightness
 trace otherwise waited two seconds after a plain-text response before asking
 for the required completion marker. `semantic-retry.test.mjs` verifies immediate
 correction, bounded failure and cancellation for both ESM and CommonJS.
+
+On Android only, the core publication patch uses exclusive file copy instead of
+hard links for single-file reports. Android denies the hard-link operation even
+inside the app sandbox. COPYFILE_EXCL preserves rejection of existing targets;
+other platforms retain the upstream publication path. The application imports and
+shares the original self-contained SDK report, so no data sidecars are lost.
