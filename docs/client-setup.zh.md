@@ -2,7 +2,9 @@
 
 本文介绍如何把 Tapilot 接入豆包工作、WorkBuddy、Cherry Studio、DSH Web、Codex 和 VS Code，让你在会话里查看、操作 Android 手机。
 
-更新于 2026-11-05。当前统一接入包面向 **macOS Apple Silicon（M 系列芯片）**，由维护者提供，尚无公开发布的下载入口。Windows、Linux 和其他架构需要另行验证。
+更新于 2026-11-05。当前统一接入包面向 **macOS Apple Silicon（M 系列芯片）**，已通过 [0.6.18 接入预发布](https://github.com/tapilot-ai/tapilot/releases/tag/client-setup-v0.6.18) 提供公开下载。Windows、Linux 和其他架构需要另行验证。
+
+优先打开[官网接入页](https://tapilot.lifeos.md/zh/install)，复制提示词交给当前客户端。官网同时提供无需预装 Skill 的公开 Agent 说明和手动安装入口。
 
 ## 选一个客户端
 
@@ -24,7 +26,7 @@
 - 一台已安装并登录所选 AI 客户端的电脑。该客户端需要有能调用工具、读取图片的模型。
 - 一部安装了 Tapilot 的 Android 手机，并按应用提示开启设备控制无障碍服务和无线控制。当前手机端要求见[手机安装说明](../README.zh.md#开始使用)。
 - 手机保持解锁，电脑与手机处于能够互相访问的网络中；首次使用可先连接同一个 Wi-Fi。
-- 从维护者处获取适合本机的 Tapilot 接入包。
+- 从官网接入页下载适合本机的 Tapilot 接入包，核对文件大小与 SHA-256。
 
 通过客户端的 Skill 使用 Tapilot 时，由客户端的模型读取截图、决定操作。默认步骤模式不需要另外配置一套 Midscene 模型凭据；手机上独立运行 AI 任务的模型设置另行配置。
 

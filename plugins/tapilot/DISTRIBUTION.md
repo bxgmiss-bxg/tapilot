@@ -15,6 +15,9 @@ native panel support.
 
 ## Unified macOS setup
 
+The macOS arm64 setup archive is now available in the [Client Setup 0.6.18 Preview](https://github.com/tapilot-ai/tapilot/releases/tag/client-setup-v0.6.18). Use the [website setup entry](https://tapilot.lifeos.md/install) and its public `/install/agent.en.md` instructions. This does not publish an npm package, DSH marketplace index or Codex marketplace entry.
+
+
 The builder also emits `tapilot-setup-darwin-ARCH-VERSION.tar.gz` with a supported
 Node binary, the complete audited runtime and `Install Tapilot.command`. Users
 extract, double-click, choose a client and follow only its remaining host steps.
@@ -24,7 +27,7 @@ archives. The archive supports the builder's macOS architecture only.
 The wizard saves a local `INSTALLATION.md` and separates installation/protocol
 checks from native panel and phone-task acceptance. Run a new verified archive to
 update; this is an explicit offline update, not a network auto-updater. Distribution
-through a public download or vendor marketplace remains a publication step.
+through a vendor marketplace remains a separate publication step; the unified macOS arm64 archive has a verified public GitHub download.
 
 ## Build
 
