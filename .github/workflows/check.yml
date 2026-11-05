@@ -5,6 +5,14 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
+      case_ids:
+        description: Optional comma-separated hosted case IDs for focused regression; empty runs all core flows
+        type: string
+        default: ''
+      siwc_refresh:
+        description: Force one real SIWC token refresh and secret writeback before APK acceptance
+        type: boolean
+        default: false
       device_e2e:
         description: Build and install the verification APK on the dedicated Android phone, then run Midscene smoke cases
         type: boolean
@@ -13,7 +21,7 @@ permissions:
   contents: read
 env:
   # Bump this key to intentionally refresh the Android 35 system image.
-  TAPILOT_CI_ANDROID_IMAGE_KEY: tapilot-android35-google-apis-x86_64-v1
+  TAPILOT_CI_ANDROID_IMAGE_KEY: tapilot-android35-google-apis-x86_64-emulator-v2
 concurrency:
   group: checks-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: true
@@ -22,7 +30,7 @@ jobs:
     name: Midscene Terra 6.1 live API
     # main pushes include merged PRs; manual runs can validate a trusted branch.
     # No secrets or paid inference for pull_request runs, including forks.
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.TAPILOT_CI_AUTH_MODE != 'siwc' }}
     runs-on: ubuntu-latest
     timeout-minutes: 12
     steps:
@@ -52,6 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Install emulator host library
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libpulse0
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
@@ -59,22 +69,28 @@ jobs:
         id: image
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          path: |
+            ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+            ${{ env.ANDROID_HOME }}/emulator
           key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
       - name: Install the image on a cache miss
         if: steps.image.outputs.cache-hit != 'true'
-        run: sdkmanager 'system-images;android-35;google_apis;x86_64'
+        run: sdkmanager 'system-images;android-35;google_apis;x86_64' 'emulator'
       - name: Verify the cached image identity
         run: |
           properties="$ANDROID_HOME/system-images/android-35/google_apis/x86_64/source.properties"
           grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
           grep -Fx 'SystemImage.Abi=x86_64' "$properties"
           grep -Fx 'SystemImage.TagId=google_apis' "$properties"
+          test -x "$ANDROID_HOME/emulator/emulator"
+          "$ANDROID_HOME/emulator/emulator" -version
       - name: Save the image before admitting the test runners
         if: steps.image.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
-          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          path: |
+            ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+            ${{ env.ANDROID_HOME }}/emulator
           key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
 
   apk-build:
@@ -82,6 +98,7 @@ jobs:
     outputs:
       artifact-name: ${{ steps.handoff.outputs.artifact-name }}
       plan: ${{ steps.handoff.outputs.plan }}
+      lane-count: ${{ steps.handoff.outputs.lane-count }}
     if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -131,6 +148,8 @@ jobs:
       - name: Record shared APK identity and generate balanced case lanes
         id: handoff
         shell: bash
+        env:
+          TAPILOT_CI_CASE_IDS: ${{ github.event_name == 'workflow_dispatch' && inputs.case_ids || '' }}
         run: |
           mkdir -p build/ci-apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
@@ -138,8 +157,11 @@ jobs:
           grep -F "name='lifeos.md.tapilot.e2everify'" build/ci-apk/package.txt
           cp app/build/outputs/apk/debug/app-debug.apk build/ci-apk/
           node tests/midscene/scripts/ci-shards.ts plan
-          echo "artifact-name=ci-verification-apk-${{ github.run_id }}-${{ github.run_attempt }}" >> "$GITHUB_OUTPUT"
-          echo "plan=$(cat build/ci-apk/ci-plan.json)" >> "$GITHUB_OUTPUT"
+          {
+            echo "artifact-name=ci-verification-apk-${{ github.run_id }}-${{ github.run_attempt }}"
+            echo "plan=$(cat build/ci-apk/ci-plan.json)"
+            echo "lane-count=$(node -p 'JSON.parse(require("node:fs").readFileSync("build/ci-apk/ci-plan.json")).lanes.length')"
+          } >> "$GITHUB_OUTPUT"
       # Explicitly authorized CI job handoff only; no release APK is published.
       - uses: actions/upload-artifact@v4
         with:
@@ -149,16 +171,53 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  apk-midscene:
-    name: APK core flows (${{ matrix.lane }}/4)
+  siwc-credentials:
+    # Opt in after provisioning the dedicated owner environment. Mint after the
+    # build/image are ready so queued builds do not consume the access lifetime.
     needs: [apk-build, android-image]
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && vars.TAPILOT_CI_AUTH_MODE == 'siwc' }}
+    environment: tapilot-siwc
+    concurrency:
+      group: tapilot-siwc-refresh-owner
+      cancel-in-progress: false
+      queue: max
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ticket: ${{ steps.access.outputs.ticket }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: tests/midscene/package-lock.json
+      - run: npm ci --prefix tests/midscene
+      - name: Prepare serialized SIWC session
+        id: access
+        uses: quanru/midscene-action/siwc/prepare@6e9bb5e21ac8f5a65573bb9e07c5b6ab7624235c
+        with:
+          working-directory: tests/midscene
+          environment: tapilot-siwc
+          credentials: ${{ secrets.SIWC_CREDENTIALS }}
+          secret-write-token: ${{ secrets.SIWC_SECRET_WRITE_TOKEN }}
+          transport-key: ${{ secrets.SIWC_TRANSPORT_KEY }}
+          force-refresh: ${{ github.event_name == 'workflow_dispatch' && inputs.siwc_refresh }}
+
+  apk-midscene:
+    name: APK core flows (${{ matrix.lane }}/${{ needs.apk-build.outputs.lane-count }})
+    needs: [apk-build, android-image, siwc-credentials]
+    # A skipped optional owner must not skip the existing API-key lanes.
+    if: ${{ !cancelled() && needs.apk-build.result == 'success' && needs.android-image.result == 'success' && (needs.siwc-credentials.result == 'success' || needs.siwc-credentials.result == 'skipped') }}
     strategy:
       fail-fast: false
       matrix:
-        lane: [1, 2, 3, 4]
+        lane: ${{ fromJSON(needs.apk-build.outputs.plan).lanes.*.id }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Install emulator host library
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libpulse0
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v7
         with:
@@ -173,7 +232,9 @@ jobs:
       - name: Restore the shared Android system image
         uses: actions/cache/restore@v4
         with:
-          path: ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+          path: |
+            ${{ env.ANDROID_HOME }}/system-images/android-35/google_apis/x86_64
+            ${{ env.ANDROID_HOME }}/emulator
           key: ${{ env.TAPILOT_CI_ANDROID_IMAGE_KEY }}
           fail-on-cache-miss: true
       - name: Verify image identity and emulator availability
@@ -182,9 +243,8 @@ jobs:
           grep -Fx 'AndroidVersion.ApiLevel=35' "$properties"
           grep -Fx 'SystemImage.Abi=x86_64' "$properties"
           grep -Fx 'SystemImage.TagId=google_apis' "$properties"
-          if [ ! -x "$ANDROID_HOME/emulator/emulator" ]; then
-            sdkmanager 'emulator'
-          fi
+          test -x "$ANDROID_HOME/emulator/emulator"
+          "$ANDROID_HOME/emulator/emulator" -version
       - name: Download the exact APK produced by this run's shared build
         uses: actions/download-artifact@v4
         with:
@@ -196,12 +256,32 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Install APK and run real screen core flows with Terra
-        id: apk-test
-        # Shards only produce evidence. The final job owns the native action,
-        # Summary and published entry so this workflow has one report entrance.
-        run: bash scripts/run-apk-ci-emulator.sh
+        if: ${{ vars.TAPILOT_CI_AUTH_MODE == 'siwc' }}
+        uses: quanru/midscene-action/siwc/run@6e9bb5e21ac8f5a65573bb9e07c5b6ab7624235c
+        with:
+          working-directory: .
+          command: GITHUB_STEP_SUMMARY=/dev/null bash scripts/run-apk-ci-emulator.sh
+          ticket: ${{ needs.siwc-credentials.outputs.ticket }}
+          transport-key: ${{ secrets.SIWC_TRANSPORT_KEY }}
+        env:
+          TAPILOT_CI_AUTH_MODE: ${{ vars.TAPILOT_CI_AUTH_MODE }}
+          MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
+          MIDSCENE_MODEL_NAME: gpt-6.1-terra
+          MIDSCENE_MODEL_FAMILY: gpt-6
+          MIDSCENE_MODEL_PROTOCOL: openai-responses
+          MIDSCENE_INCLUDE_TAGS: smoke,draft-restart,share-draft,ci-core
+          MIDSCENE_EXCLUDE_TAGS: ''
+          TAPILOT_E2E_CI_LANE: ${{ matrix.lane }}
+          TAPILOT_E2E_DEVICE_ID: emulator-5554
+          TAPILOT_E2E_PACKAGE: lifeos.md.tapilot.e2everify
+          TAPILOT_E2E_SCREEN_INFO: wm
+          MIDSCENE_REPORT_QUIET: 'true'
+      - name: Install APK and run core flows with API key
+        if: ${{ vars.TAPILOT_CI_AUTH_MODE != 'siwc' }}
+        run: GITHUB_STEP_SUMMARY=/dev/null bash scripts/run-apk-ci-emulator.sh
         env:
           MIDSCENE_MODEL_API_KEY: ${{ secrets.TAPILOT_OPENAI_API_KEY }}
+          TAPILOT_CI_AUTH_MODE: ${{ vars.TAPILOT_CI_AUTH_MODE }}
           MIDSCENE_MODEL_BASE_URL: https://api.openai.com/v1
           MIDSCENE_MODEL_NAME: gpt-6.1-terra
           MIDSCENE_MODEL_FAMILY: gpt-6
@@ -256,60 +336,21 @@ jobs:
         with:
           pattern: midscene-apk-shard-*
           path: tests/midscene/shard-results
-      - name: Merge all native Midscene reports and check coverage
+      - name: Merge and publish one native Midscene report
         id: apk-test
         env:
           TAPILOT_CI_PLAN: ${{ needs.apk-build.outputs.plan }}
-        uses: web-infra-dev/midscene-action@5ef922b20a69d69a0f34639c4c867ba2049f6ede # v1
+        uses: quanru/midscene-action@6e9bb5e21ac8f5a65573bb9e07c5b6ab7624235c
         with:
           working-directory: tests/midscene
           command: node scripts/merge-ci-reports.mjs
           artifact-name: midscene-apk-complete-${{ github.run_id }}-${{ github.run_attempt }}
           retention-days: '7'
-          publish-pages: 'false'
-      - name: Locate APK smoke HTML report
-        id: apk-report
-        if: ${{ always() && (steps.apk-test.outcome == 'success' || steps.apk-test.outcome == 'failure') }}
-        shell: bash
-        run: |
-          shopt -s nullglob
-          reports=(tests/midscene/midscene_run/report/midscene-e2e-*/index.html)
-          if [ "${#reports[@]}" -ne 1 ]; then
-            echo '::error::Expected exactly one APK smoke HTML report'
-            exit 1
-          fi
-          echo "directory=${reports[0]%/index.html}" >> "$GITHUB_OUTPUT"
-      - name: Prepare isolated Wrangler directory
-        if: ${{ always() && steps.apk-report.outcome == 'success' }}
-        run: |
-          mkdir -p .cloudflare-deploy
-          echo '{"private":true}' > .cloudflare-deploy/package.json
-      - name: Publish APK smoke report
-        id: apk-pages
-        if: ${{ always() && steps.apk-report.outcome == 'success' }}
-        uses: cloudflare/wrangler-action@953926a2e2182532811c01a25e53647d93bf07c0 # v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: '4.151.1'
-          packageManager: npm
-          workingDirectory: .cloudflare-deploy
-          command: pages deploy "../${{ steps.apk-report.outputs.directory }}" --project-name=tapilot-apk-reports --branch=run-${{ github.run_id }}-${{ github.run_attempt }} --commit-hash=${{ github.sha }}
-      - name: Link APK report
-        if: ${{ always() && steps.apk-pages.outcome == 'success' }}
-        env:
-          REPORT_URL: ${{ steps.apk-pages.outputs.deployment-url }}
-        run: |
-          set -euo pipefail
-          if [[ ! "$REPORT_URL" =~ ^https://[a-z0-9.-]+\.tapilot-apk-reports\.pages\.dev/?$ ]]; then
-            echo '::error::Cloudflare did not return the expected report URL'
-            exit 1
-          fi
-          curl --fail --silent --show-error --retry 3 --max-time 30 "$REPORT_URL" -o /tmp/published-report.html
-          grep -q 'midscene_test_run_dump' /tmp/published-report.html
-          badge=$(cat tests/midscene/midscene_run/ci-badge.md)
-          printf '[%s](%s)\n\n[Open all APK cases in Midscene Test ↗](%s)\n\nCloudflare: <%s>\n\nSource: %s\n' \
-            "$badge" "$REPORT_URL" "$REPORT_URL" "$REPORT_URL" "$GITHUB_SHA" >> "$GITHUB_STEP_SUMMARY"
+          publish-pages: 'true'
+          cloudflare-target: pages
+          cloudflare-pages-project: tapilot-apk-reports
+          cloudflare-api-token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare-account-id: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
 
   device-e2e-config:
     if: github.event_name == 'workflow_dispatch' && inputs.device_e2e

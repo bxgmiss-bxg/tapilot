@@ -28,7 +28,7 @@ test('native merge retains all cases and failed verdicts and refuses mixed APK e
       prepareShard(plan, lane.id, { apk, root: directory, sourceSha: identity.sourceSha, runId: identity.runId,
         evidenceDirectory: join(directory, 'midscene_run/ci') });
       writeFileSync(join(directory, 'config.mjs'), `import {defineNode,z} from ${JSON.stringify(sdk)};
-export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/lane-${lane.id}/*.yaml']},retry:0}],nodes:[defineNode({name:'probe',inputSchema:z.strictObject({fail:z.boolean()}),execute({input}){if(input.fail)throw new Error('deliberate fixture failure');return {summary:'fixture evidence'};}})]};`);
+export default {output:{reportFormat:'html-and-external-assets'},projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/lane-${lane.id}/*.yaml']},retry:0}],nodes:[defineNode({name:'probe',inputSchema:z.strictObject({fail:z.boolean()}),execute({input}){if(input.fail)throw new Error('deliberate fixture failure');return {summary:'fixture evidence'};}})]};`);
       await runTestProject({ cwd: directory, projectRoot: directory, configPath: join(directory, 'config.mjs') });
     }
     const runMerge = () => spawnSync(process.execPath, [merger], { cwd: root, encoding: 'utf8', env: {
@@ -37,7 +37,7 @@ export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/
     const result = runMerge();
     assert.equal(result.status, 1, result.stderr);
     assert.match(result.stdout, /9\/11 passed/);
-    const html = readFileSync(join(root, 'midscene_run/report/midscene-e2e-complete.html'), 'utf8');
+    const html = readFileSync(join(root, 'midscene_run/report/midscene-e2e-complete/index.html'), 'utf8');
     const match = html.match(/<script[^>]*type="midscene_test_run_dump"[^>]*>([\s\S]*?)<\/script>/);
     assert.ok(match, 'Must use the native Midscene test report');
     const dump = JSON.parse(match[1]);
@@ -45,11 +45,32 @@ export default {projects:[{name:'android-${lane.id}',files:{include:['.ci-cases/
     assert.equal(dump.summary.failed, 2);
     assert.match(readFileSync(join(root, 'midscene_run/ci-badge.md'), 'utf8'), /pass=9&fail=2/);
     assert.equal(dump.projects.length, 4);
+    for (const project of dump.projects) {
+      for (const plan of project.plans ?? []) {
+        const document = project.documents.find((item: { documentId: string }) => item.documentId === plan.documentId);
+        assert.ok(document, 'Every planned document must match its real execution instead of creating an unrun duplicate');
+        if (document.plan) assert.deepEqual(document.plan, plan, 'Embedded document plan must use the same remapped IDs');
+        for (const plannedCase of plan.cases) {
+          const executed = document.cases.find((item: { caseId: string }) => item.caseId === plannedCase.caseId);
+          assert.ok(executed, 'Every selected case plan must match its executed case');
+          assert.equal(executed.name, plannedCase.name);
+          if (executed.plan) assert.deepEqual(executed.plan, plannedCase, 'Embedded case plan must use the same remapped IDs');
+          const plannedSteps = new Set([...plannedCase.beforeEach, ...plannedCase.steps, ...plannedCase.afterEach].map(item => item.id));
+          for (const attempt of executed.attempts) for (const step of [...attempt.beforeEach, ...attempt.steps, ...attempt.afterEach]) {
+            if (step.planStepId) assert.ok(plannedSteps.has(step.planStepId), 'Execution step must resolve to its original plan');
+          }
+        }
+      }
+    }
     assert.deepEqual(readdirSync(join(root, '.midscene/test-results')), ['complete']);
     const summary = readFileSync(join(root, '.midscene/test-results/complete/result.md'), 'utf8');
     assert.equal(summary.match(/^# Midscene Test$/gm)?.length, 1);
     for (const id of ids) assert.match(summary, new RegExp(`\\| ${id} \\|`));
     assert.match(summary, /9\/11 passed/);
+    const publication = JSON.parse(readFileSync(join(root, '.midscene/test-results/complete/summary.json'), 'utf8'));
+    assert.equal(publication.exitCode, 1, 'Publication must preserve the failed test verdict');
+    assert.equal(publication.projects.flatMap((project: { cases: unknown[] }) => project.cases).length, 11);
+    assert.equal(readFileSync(join(root, '.midscene/test-results/complete', publication.report), 'utf8'), html);
     const provenance = join(root, 'shard-results/midscene-apk-shard-1-1/midscene_run/ci/provenance.json');
     const data = JSON.parse(readFileSync(provenance, 'utf8'));
     writeFileSync(provenance, JSON.stringify({ ...data, apkSha256: 'b'.repeat(64) }));
